@@ -4,8 +4,18 @@ import React, { useState } from 'react';
 import { Receipt, Plus, Search, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Calendar } from 'lucide-react';
 import styles from './transactions.module.css';
 
+interface TransactionItem {
+  id: string;
+  type: 'INCOME' | 'EXPENSE';
+  description: string;
+  amount: number;
+  category: string;
+  account: string;
+  date: string;
+}
+
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState([
+  const [transactions, setTransactions] = useState<TransactionItem[]>([
     { id: '1', type: 'INCOME', description: 'Gaji Bulanan PT Maju Bersama', amount: 15000000, category: 'Gaji', account: 'BCA', date: '2026-08-01' },
     { id: '2', type: 'EXPENSE', description: 'Makan Siang Nasi Padang', amount: 45000, category: 'Makanan & Minuman', account: 'GoPay', date: '2026-08-07' },
     { id: '3', type: 'EXPENSE', description: 'Kopi Susu Gula Aren', amount: 28000, category: 'Makanan & Minuman', account: 'GoPay', date: '2026-08-07' },
@@ -33,7 +43,7 @@ export default function TransactionsPage() {
     e.preventDefault();
     if (!newDesc || !newAmount) return;
 
-    const created = {
+    const created: TransactionItem = {
       id: Date.now().toString(),
       type: newType,
       description: newDesc,
