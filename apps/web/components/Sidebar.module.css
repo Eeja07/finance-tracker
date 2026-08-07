@@ -1,5 +1,5 @@
 .sidebar {
-  width: 260px;
+  width: 240px;
   height: 100vh;
   position: fixed;
   top: 0;
@@ -9,30 +9,29 @@
   display: flex;
   flex-direction: column;
   z-index: 40;
-  transition: border-color 0.25s ease, background 0.25s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .header {
-  padding: 20px;
+  padding: 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .logoIcon {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius);
-  background: var(--accent);
-  color: #ffffff;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--btn-bg);
+  color: var(--btn-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow);
 }
 
 .logoText {
@@ -41,45 +40,46 @@
 }
 
 .appName {
-  font-weight: 800;
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
   color: var(--text);
+  line-height: 1.2;
 }
 
 .appTag {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--text-subtle);
   font-weight: 500;
 }
 
 .nav {
   flex: 1;
-  padding: 16px 12px;
+  padding: 12px 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   overflow-y: auto;
 }
 
 .navGroupTitle {
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  font-weight: 600;
   color: var(--text-subtle);
   letter-spacing: 0.05em;
-  padding: 8px 12px 4px;
+  padding: 10px 8px 4px;
 }
 
 .navLink {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 10px;
+  padding: 7px 10px;
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
 }
 
 .navLink:hover {
@@ -90,45 +90,47 @@
 .active {
   background: var(--accent-light);
   color: var(--accent);
+  font-weight: 600;
 }
 
 .badge {
   margin-left: auto;
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  font-weight: 600;
   background: var(--accent);
   color: #ffffff;
-  padding: 2px 7px;
-  border-radius: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
 .footer {
-  padding: 16px;
+  padding: 12px;
   border-top: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .themeSection {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .themeLabel {
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.65rem;
+  font-weight: 600;
   color: var(--text-subtle);
   letter-spacing: 0.05em;
+  padding-left: 2px;
 }
 
 .themeToggleGroup {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  gap: 2px;
   background: var(--bg-subtle);
-  padding: 3px;
+  padding: 2px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
@@ -138,45 +140,46 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 6px 0;
-  font-size: 0.72rem;
-  font-weight: 600;
+  padding: 4px 0;
+  font-size: 0.7rem;
+  font-weight: 500;
   color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  transition: all 0.2s ease;
+  border-radius: calc(var(--radius-sm) - 2px);
+  transition: all 0.15s ease;
 }
 
 .activeTheme {
   background: var(--bg-card);
   color: var(--text);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  font-weight: 600;
+  box-shadow: var(--shadow);
 }
 
 .pinkBtnActive {
-  background: #fce7f3;
-  color: #be185d;
-  font-weight: 700;
-  box-shadow: 0 1px 3px rgba(236, 72, 153, 0.2);
+  background: var(--bg-card);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: var(--shadow);
 }
 
 .userCard {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  padding: 8px;
   background: var(--bg-subtle);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
 
 .avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #ffffff;
-  font-size: 0.8rem;
-  font-weight: 700;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -188,12 +191,13 @@
 }
 
 .userName {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--text);
+  line-height: 1.2;
 }
 
 .userRole {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--text-subtle);
 }

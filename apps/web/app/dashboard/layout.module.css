@@ -5,7 +5,7 @@
 }
 
 .mainContent {
-  margin-left: 260px;
+  margin-left: 240px;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -13,8 +13,8 @@
 }
 
 .topNavbar {
-  height: 70px;
-  padding: 0 32px;
+  height: 56px;
+  padding: 0 24px;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -26,46 +26,48 @@
 }
 
 .welcomeText {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text);
   margin-right: 12px;
 }
 
 .dateBadge {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .navActions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .waStatusBadge {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  color: #10b981;
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  gap: 6px;
+  background: var(--income-bg);
+  border: 1px solid var(--income-color);
+  color: var(--income-color);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .onlineDot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px #10b981;
+  background: var(--income-color);
 }
 
 .contentBody {
-  padding: 32px;
+  padding: 24px;
   flex: 1;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
 }

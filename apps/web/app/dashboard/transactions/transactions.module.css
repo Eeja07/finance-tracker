@@ -1,7 +1,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .headerBanner {
@@ -11,51 +11,51 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px 30px;
-  box-shadow: var(--shadow);
+  padding: 16px 20px;
 }
 
 .headerBanner h2 {
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: 1.15rem;
+  font-weight: 600;
   color: var(--text);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  letter-spacing: -0.01em;
 }
 
 .headerBanner p {
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 
 .addBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--accent);
-  color: #ffffff;
-  padding: 10px 18px;
+  gap: 6px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.9rem;
+  font-weight: 500;
+  font-size: 0.82rem;
 }
 
 .filterBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .searchBox {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 16px;
+  padding: 6px 12px;
   flex: 1;
-  max-width: 400px;
+  max-width: 320px;
   color: var(--text-muted);
 }
 
@@ -65,29 +65,30 @@
   color: var(--text);
   outline: none;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .filterGroup {
   display: flex;
-  gap: 6px;
+  gap: 2px;
   background: var(--bg-card);
-  padding: 4px;
+  padding: 2px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
 }
 
 .filterBtn {
-  padding: 8px 16px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--text-muted);
-  border-radius: var(--radius-sm);
+  border-radius: calc(var(--radius-sm) - 2px);
 }
 
 .activeFilter {
-  background: var(--accent-light);
-  color: var(--accent);
+  background: var(--bg-subtle);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .tableCard {
@@ -95,7 +96,6 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: var(--shadow);
 }
 
 .table {
@@ -106,31 +106,32 @@
 
 .table th {
   background: var(--bg-subtle);
-  padding: 14px 20px;
-  font-size: 0.78rem;
-  font-weight: 700;
+  padding: 10px 16px;
+  font-size: 0.72rem;
+  font-weight: 600;
   color: var(--text-subtle);
   text-transform: uppercase;
+  letter-spacing: 0.03em;
   border-bottom: 1px solid var(--border);
 }
 
 .table td {
-  padding: 16px 20px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border-subtle);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text);
 }
 
 .txDescGroup {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .incomeBadge, .expenseBadge {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -140,30 +141,30 @@
 .expenseBadge { background: var(--expense-bg); color: var(--expense-color); }
 
 .txDesc {
-  font-weight: 700;
+  font-weight: 500;
   color: var(--text);
 }
 
 .categoryChip, .accountChip {
   background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.78rem;
-  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
-.incomeText { color: var(--income-color); font-weight: 800; }
-.expenseText { color: var(--expense-color); font-weight: 800; }
+.incomeText { color: var(--income-color); font-weight: 600; font-variant-numeric: tabular-nums; }
+.expenseText { color: var(--expense-color); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .deleteBtn {
   color: var(--text-subtle);
-  transition: color 0.2s ease;
+  transition: color 0.15s ease;
 }
 
 .deleteBtn:hover {
-  color: #ef4444;
+  color: var(--expense-color);
 }
 
 .modalOverlay {
@@ -172,8 +173,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -184,50 +184,50 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 28px;
-  width: 480px;
+  padding: 20px;
+  width: 440px;
   max-width: 90vw;
   box-shadow: var(--shadow);
 }
 
 .modalContent h3 {
-  font-size: 1.2rem;
-  font-weight: 800;
+  font-size: 1.05rem;
+  font-weight: 600;
   color: var(--text);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .formGroup label {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
 .typeSelector {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 
 .typeBtn {
-  padding: 10px;
+  padding: 8px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-subtle);
-  font-weight: 700;
-  font-size: 0.88rem;
+  font-weight: 500;
+  font-size: 0.82rem;
   color: var(--text-muted);
 }
 
@@ -235,48 +235,58 @@
   background: var(--expense-bg);
   border-color: var(--expense-color);
   color: var(--expense-color);
+  font-weight: 600;
 }
 
 .activeIncome {
   background: var(--income-bg);
   border-color: var(--income-color);
   color: var(--income-color);
+  font-weight: 600;
 }
 
 .formGroup input, .formGroup select {
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 8px 10px;
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.formGroup input:focus, .formGroup select:focus {
+  border-color: var(--border-focus);
 }
 
 .formGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 10px;
 }
 
 .modalActions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .cancelBtn {
-  padding: 10px 16px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
-  color: var(--text-muted);
-  font-weight: 700;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.82rem;
 }
 
 .submitBtn {
-  padding: 10px 18px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #ffffff;
-  font-weight: 700;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  font-weight: 500;
+  font-size: 0.82rem;
 }

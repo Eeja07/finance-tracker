@@ -1,7 +1,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .headerBanner {
@@ -11,67 +11,72 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px 30px;
-  box-shadow: var(--shadow);
+  padding: 16px 20px;
 }
 
 .headerBanner h2 {
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: 1.15rem;
+  font-weight: 600;
   color: var(--text);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  letter-spacing: -0.01em;
 }
 
 .headerBanner p {
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 
 .addBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--accent);
-  color: #ffffff;
-  padding: 10px 18px;
+  gap: 6px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.9rem;
+  font-weight: 500;
+  font-size: 0.82rem;
 }
 
 .totalBar {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px 24px;
+  padding: 14px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 1.05rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
 }
 
 .totalValue {
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: 1.15rem;
+  font-weight: 600;
   color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 14px;
 }
 
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  box-shadow: var(--shadow);
+  gap: 12px;
+  transition: border-color 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--border-focus);
 }
 
 .cardHeader {
@@ -81,8 +86,8 @@
 }
 
 .iconCircle {
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -91,42 +96,44 @@
 
 .typeBadge {
   background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.72rem;
-  font-weight: 800;
+  border: 1px solid var(--border-subtle);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
   color: var(--text-subtle);
+  text-transform: uppercase;
 }
 
 .cardBody {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .accountName {
-  font-size: 1.1rem;
-  font-weight: 800;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text);
 }
 
 .accountNo {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text-subtle);
 }
 
 .balanceValue {
-  font-size: 1.35rem;
-  font-weight: 800;
-  color: var(--accent);
-  margin-top: 10px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .cardFooter {
   border-top: 1px solid var(--border-subtle);
-  padding-top: 12px;
-  font-size: 0.76rem;
+  padding-top: 8px;
+  font-size: 0.72rem;
   color: var(--text-subtle);
 }
 
@@ -136,8 +143,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -148,34 +154,34 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 28px;
-  width: 460px;
+  padding: 20px;
+  width: 440px;
   max-width: 90vw;
   box-shadow: var(--shadow);
 }
 
 .modalContent h3 {
-  font-size: 1.2rem;
-  font-weight: 800;
+  font-size: 1.05rem;
+  font-weight: 600;
   color: var(--text);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .formGroup label {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
@@ -183,36 +189,44 @@
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 8px 10px;
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.formGroup input:focus, .formGroup select:focus {
+  border-color: var(--border-focus);
 }
 
 .formGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 10px;
 }
 
 .modalActions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .cancelBtn {
-  padding: 10px 16px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
-  color: var(--text-muted);
-  font-weight: 700;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.82rem;
 }
 
 .submitBtn {
-  padding: 10px 18px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #ffffff;
-  font-weight: 700;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  font-weight: 500;
+  font-size: 0.82rem;
 }

@@ -1,70 +1,67 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 20px;
 }
 
 .heroBanner {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 28px 32px;
+  padding: 20px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: var(--shadow);
 }
 
 .heroText h2 {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: 1.2rem;
+  font-weight: 600;
   color: var(--text);
-  margin-bottom: 6px;
-  letter-spacing: -0.02em;
+  margin-bottom: 2px;
+  letter-spacing: -0.01em;
 }
 
 .heroText p {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
 }
 
 .heroActions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .primaryBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--accent);
-  color: #ffffff;
-  padding: 10px 18px;
+  gap: 6px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+  font-weight: 500;
+  font-size: 0.82rem;
+  transition: opacity 0.15s ease;
 }
 
 .primaryBtn:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
+  opacity: 0.9;
 }
 
 .secondaryBtn {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--bg-subtle);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 10px 18px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
+  font-weight: 500;
+  font-size: 0.82rem;
+  transition: background-color 0.15s ease;
 }
 
 .secondaryBtn:hover {
@@ -74,23 +71,21 @@
 .kpiGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  gap: 16px;
 }
 
 .kpiCard {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-shadow: var(--shadow);
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  gap: 10px;
+  transition: border-color 0.15s ease;
 }
 
 .kpiCard:hover {
-  transform: translateY(-2px);
   border-color: var(--border-focus);
 }
 
@@ -101,120 +96,118 @@
 }
 
 .kpiTitle {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
 }
 
 .kpiIconWallet, .kpiIconIncome, .kpiIconExpense, .kpiIconNet {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.kpiIconWallet { background: rgba(99, 102, 241, 0.12); color: var(--accent); }
+.kpiIconWallet { background: var(--accent-light); color: var(--accent); }
 .kpiIconIncome { background: var(--income-bg); color: var(--income-color); }
 .kpiIconExpense { background: var(--expense-bg); color: var(--expense-color); }
-.kpiIconNet { background: rgba(168, 85, 247, 0.12); color: #a855f7; }
+.kpiIconNet { background: var(--bg-subtle); color: var(--text); }
 
 .kpiValue {
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: 1.2rem;
+  font-weight: 600;
   color: var(--text);
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .incomeText { color: var(--income-color); }
 .expenseText { color: var(--expense-color); }
 
 .kpiFooter {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text-subtle);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .mainGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
+  gap: 16px;
 }
 
 .cardSection {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  box-shadow: var(--shadow);
+  gap: 16px;
 }
 
 .sectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-
   border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 16px;
+  padding-bottom: 12px;
 }
 
 .sectionTitleGroup {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .accentIcon {
-  color: var(--accent);
+  color: var(--text-muted);
 }
 
 .sectionTitleGroup h3 {
-  font-size: 1.1rem;
-  font-weight: 800;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text);
 }
 
 .subTitle {
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   color: var(--text-subtle);
-  font-weight: 500;
 }
 
 .dailyTotalBadge {
   background: var(--expense-bg);
   color: var(--expense-color);
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-weight: 700;
-  font-size: 0.85rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .expenseList {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .expenseRow {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 8px 10px;
   background: var(--bg-subtle);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
 }
 
 .expenseIcon {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background: var(--expense-bg);
   color: var(--expense-color);
   display: flex;
@@ -229,56 +222,56 @@
 }
 
 .expenseName {
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 500;
   color: var(--text);
 }
 
 .expenseMeta {
-  font-size: 0.76rem;
+  font-size: 0.72rem;
   color: var(--text-subtle);
 }
 
 .expenseAmount {
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--expense-color);
+  font-variant-numeric: tabular-nums;
 }
 
 .cardFooter {
   display: flex;
   justify-content: flex-end;
-  padding-top: 8px;
+  padding-top: 4px;
 }
 
 .viewMoreLink {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   color: var(--accent);
-  font-weight: 700;
-  font-size: 0.85rem;
-  transition: gap 0.2s ease;
+  font-weight: 500;
+  font-size: 0.78rem;
 }
 
 .viewMoreLink:hover {
-  gap: 10px;
+  text-decoration: underline;
 }
 
 .installmentList {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .installmentCard {
   background: var(--bg-subtle);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .instHeader {
@@ -288,28 +281,27 @@
 }
 
 .instTitle {
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--text);
   display: block;
 }
 
 .instProvider {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   color: var(--text-subtle);
 }
 
 .instBadge {
   display: flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(249, 115, 22, 0.12);
-  color: #f97316;
-  border: 1px solid rgba(249, 115, 22, 0.3);
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  gap: 4px;
+  background: var(--accent-light);
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 .instBody {
@@ -319,33 +311,33 @@
 }
 
 .instPrice {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--accent);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .instPrice span {
-  font-size: 0.78rem;
-  font-weight: 500;
+  font-size: 0.72rem;
+  font-weight: 400;
   color: var(--text-subtle);
 }
 
 .instTenor {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
 .progressBarBg {
-  height: 8px;
+  height: 6px;
   background: var(--border);
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .progressBarFill {
   height: 100%;
   background: var(--accent);
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  border-radius: 3px;
 }

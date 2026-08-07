@@ -1,7 +1,7 @@
 .container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .headerBanner {
@@ -11,136 +11,135 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px 30px;
-  box-shadow: var(--shadow);
+  padding: 16px 20px;
 }
 
 .headerBanner h2 {
-  font-size: 1.4rem;
-  font-weight: 800;
+  font-size: 1.15rem;
+  font-weight: 600;
   color: var(--text);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  letter-spacing: -0.01em;
 }
 
 .headerBanner p {
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 
 .statusBadge {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--income-bg);
   color: var(--income-color);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-weight: 700;
-  font-size: 0.85rem;
+  border: 1px solid var(--income-color);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 0.78rem;
 }
 
 .contentGrid {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
-  gap: 24px;
+  gap: 16px;
 }
 
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  box-shadow: var(--shadow);
+  gap: 12px;
 }
 
 .cardHeader {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 14px;
+  padding-bottom: 10px;
 }
 
 .cardHeader h3 {
-  font-size: 1.1rem;
-  font-weight: 800;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: var(--text);
 }
 
 .accentIcon {
-  color: var(--accent);
+  color: var(--text-muted);
 }
 
 .commandList {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .commandRow {
   background: var(--bg-subtle);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 16px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .commandCode {
-  font-family: monospace;
-  font-size: 0.95rem;
-  font-weight: 800;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: var(--accent);
 }
 
 .commandDesc {
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
 }
 
 .commandExample {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--text-subtle);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .commandExample code {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  padding: 2px 8px;
+  padding: 1px 6px;
   border-radius: 4px;
   color: var(--text);
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .sidebarSection {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .formGroup label {
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
@@ -148,37 +147,42 @@
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 8px 10px;
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.formGroup input:focus {
+  border-color: var(--border-focus);
 }
 
 .sendBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  background: var(--accent);
-  color: #ffffff;
-  padding: 10px;
+  gap: 6px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.9rem;
+  font-weight: 500;
+  font-size: 0.82rem;
 }
 
 .logBox {
   background: var(--bg-subtle);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 12px;
-  font-family: monospace;
-  font-size: 0.8rem;
+  padding: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
   color: var(--income-color);
   white-space: pre-wrap;
 }
 
 .infoText {
-  font-size: 0.88rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: 1.5;
 }
