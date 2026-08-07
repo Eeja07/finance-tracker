@@ -315,6 +315,7 @@ export interface WhatsappStatus {
 
 export const whatsappApi = {
   getStatus: () => request<WhatsappStatus>("/whatsapp/status"),
+  resetSession: () => request<{ success: boolean }>("/whatsapp/reset-session", { method: "POST" }),
   sendWebhookTest: (from: string, body: string) =>
     request<{ success: boolean }>("/whatsapp/webhook", {
       method: "POST",

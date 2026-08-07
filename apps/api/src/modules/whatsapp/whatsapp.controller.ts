@@ -24,4 +24,11 @@ export class WhatsappController {
     const count = await this.whatsappService.checkAndSendInstallmentReminders();
     return { success: true, remindersSent: count };
   }
+
+  @Post('reset-session')
+  @UseGuards(JwtAuthGuard)
+  async resetSession() {
+    const success = await this.whatsappService.resetSession();
+    return { success };
+  }
 }

@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bot, CheckCircle, Smartphone, Send, Terminal, QrCode, AlertCircle, RefreshCw } from 'lucide-react';
+import { Bot, CheckCircle, Smartphone, Send, Terminal, QrCode, AlertCircle, RefreshCw, LogOut } from 'lucide-react';
 import { whatsappApi, WhatsappStatus } from '../../../lib/api';
 import styles from './whatsapp.module.css';
 
 export default function WhatsAppPage() {
   const [statusData, setStatusData] = useState<WhatsappStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
   const [testPhone, setTestPhone] = useState('6281288092766');
   const [testMessage, setTestMessage] = useState('!hariini');
   const [logResponse, setLogResponse] = useState<string | null>(null);
@@ -29,6 +30,20 @@ export default function WhatsAppPage() {
     const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleResetSession = async () => {
+    if (!confirm('Apakah kamu yakin ingin mereset sesi WhatsApp & memutus koneksi?')) return;
+    setResetting(true);
+    try {
+      await whatsappApi.resetSession();
+      setLogResponse('🔄 Sesi WhatsApp berhasil di-reset. Menyiapkan QR Code baru...');
+      await fetchStatus();
+    } catch (err: any) {
+      setLogResponse(`❌ Gagal reset sesi: ${err.message || 'Error'}`);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const commands = [
     {
@@ -81,7 +96,7 @@ export default function WhatsAppPage() {
           <h2>Integrasi Bot WhatsApp</h2>
           <p>Terhubung langsung dengan gateway WhatsApp untuk cek pengeluaran, cicilan, dan reminder otomatis.</p>
         </div>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {isConnected ? (
             <div className={styles.statusBadge}>
               <CheckCircle size={16} />
@@ -90,13 +105,24 @@ export default function WhatsAppPage() {
           ) : (
             <div className={styles.disconnectedBadge}>
               <AlertCircle size={16} />
-              <span>Status Bot: Disconnected (Pindai QR Code)</span>
+              <span>Status Bot: Disconnected</span>
             </div>
           )}
+
+          <button
+            onClick={handleResetSession}
+            disabled={resetting}
+            className={styles.sendBtn}
+            style={{ background: 'var(--bg-subtle)', color: 'var(--text)', border: '1px solid var(--border)' }}
+            title="Reset Sesi & Generate QR Baru"
+          >
+            <LogOut size={14} />
+            <span>{resetting ? 'Resetting...' : 'Reset Sesi / QR Baru'}</span>
+          </button>
         </div>
       </div>
 
-      {/* QR Code Section if disconnected */}
+      {/* QR Code Section if disconnected or QR ready */}
       {!isConnected && (
         <div className={styles.card}>
           <div className={styles.cardHeader}>
@@ -116,7 +142,7 @@ export default function WhatsAppPage() {
               <>
                 <RefreshCw size={24} className={styles.accentIcon} />
                 <p className={styles.qrText}>
-                  {loading ? 'Memuat QR Code...' : 'Sedang menyiapkan sesi WhatsApp... QR Code akan muncul otomatis dalam beberapa detik.'}
+                  {loading ? 'Memuat QR Code...' : 'Sedang menyiapkan sesi WhatsApp baru... Jika QR tidak muncul dalam 10 detik, klik tombol "Reset Sesi / QR Baru" di atas.'}
                 </p>
               </>
             )}
@@ -162,7 +188,7 @@ export default function WhatsAppPage() {
               </div>
 
               <div className={styles.formGroup}>
-                <label>Perintah Perintah (Command)</label>
+                <label>Perintah (Command)</label>
                 <input
                   type="text"
                   value={testMessage}

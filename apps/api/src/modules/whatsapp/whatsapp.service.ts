@@ -46,6 +46,22 @@ export class WhatsappService {
     }
   }
 
+  async resetSession(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.gatewayUrl}/api/v1/messages/logout`, {
+        method: 'POST',
+        headers: {
+          'X-API-KEY': this.apiKey,
+        },
+      });
+      const data = (await response.json()) as { success?: boolean };
+      return data.success === true;
+    } catch (err: any) {
+      this.logger.error(`Failed to reset WA session: ${err.message}`);
+      return false;
+    }
+  }
+
   private async getPrimaryUserId(phone?: string): Promise<string> {
     if (phone) {
       const cleanPhone = phone.replace(/[^0-9]/g, '');
