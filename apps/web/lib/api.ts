@@ -93,7 +93,20 @@ export async function request<T>(path: string, opts: RequestInit = {}): Promise<
 }
 
 function buildUrl(path: string): string {
-  let base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+  let base = process.env.NEXT_PUBLIC_API_URL || "";
+  
+  if (typeof window !== "undefined") {
+    // Client side: if base is missing or points to localhost, use relative '/api'
+    if (!base || base.includes("localhost")) {
+      base = "/api";
+    }
+  } else {
+    // Server side / SSR: default to internal API url
+    if (!base) {
+      base = "http://finance-tracker-api:3000/api";
+    }
+  }
+
   base = base.replace(/\/+$/, "");
   
   let clean = path;
