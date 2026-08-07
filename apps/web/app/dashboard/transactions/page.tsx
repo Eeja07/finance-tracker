@@ -50,7 +50,7 @@ export default function TransactionsPage() {
       amount: parseFloat(newAmount),
       category: newCategory,
       account: newAccount,
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().split('T')[0] || '',
     };
 
     setTransactions([created, ...transactions]);
