@@ -4,8 +4,8 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
 
 export const metadata: Metadata = {
-  title: "Job Tracker — Track Your Career Journey",
-  description: "Track job applications, manage interviews, and land your dream job.",
+  title: "Finance Tracker — Kelola Keuangan & Cicilan",
+  description: "Kelola keuangan harian, pantau cicilan, serta notifikasi otomatis WhatsApp.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
