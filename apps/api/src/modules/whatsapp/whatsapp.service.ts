@@ -149,7 +149,7 @@ _Atau:_ \`!tambah pemasukan 5000000 | Gaji | Bonus Proyek\`
       msg += `${idx + 1}. *${t.description}*\n   💰 Rp ${t.amount.toLocaleString('id-ID')} (${t.category?.name || 'Umum'})\n   💳 Dompet: ${t.account?.name || 'N/A'}\n`;
     });
 
-    msg += `\n🔗 _Dashboard Finance:_ https://finance.eeja.fun`;
+    msg += `\n🔗 _Dashboard Finance:_ https://money.eeja.fun`;
     return msg;
   }
 
@@ -188,7 +188,7 @@ _Atau:_ \`!tambah pemasukan 5000000 | Gaji | Bonus Proyek\`
     });
 
     msg += `📊 *Total Komitmen Cicilan/Bulan*: Rp ${totalMonthly.toLocaleString('id-ID')}\n\n`;
-    msg += `🔗 _Kelola Cicilan:_ https://finance.eeja.fun/installments`;
+    msg += `🔗 _Kelola Cicilan:_ https://money.eeja.fun/dashboard/installments`;
     return msg;
   }
 
@@ -223,7 +223,7 @@ _Atau:_ \`!tambah pemasukan 5000000 | Gaji | Bonus Proyek\`
     msg += `• Pengeluaran: Rp ${monthlyExpense.toLocaleString('id-ID')}\n`;
     msg += `• Cashflow Bersih: Rp ${(monthlyIncome - monthlyExpense).toLocaleString('id-ID')}\n\n`;
 
-    msg += `🔗 _Buka Web Finance Tracker:_ https://finance.eeja.fun`;
+    msg += `🔗 _Buka Web Finance Tracker:_ https://money.eeja.fun`;
     return msg;
   }
 

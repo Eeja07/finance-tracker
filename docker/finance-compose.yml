@@ -30,7 +30,7 @@ services:
       JWT_REFRESH_SECRET: finance-tracker-refresh-secret-key-2026-secure
       WA_GATEWAY_URL: http://gateway-whatsapp-bot:3001
       WA_GATEWAY_API_KEY: eeja_wa_gateway_secret_key_2026
-      FRONTEND_URL: https://finance.eeja.fun
+      FRONTEND_URL: https://money.eeja.fun
     volumes:
       - api_storage:/app/apps/api/storage/uploads
     depends_on:
@@ -48,7 +48,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      NEXT_PUBLIC_API_URL: https://finance.eeja.fun/api
+      NEXT_PUBLIC_API_URL: https://money.eeja.fun/api
     depends_on:
       - finance-tracker-api
     networks:
