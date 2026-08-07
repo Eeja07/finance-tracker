@@ -3,12 +3,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
-import { Loader2, Sun, Moon } from "lucide-react";
+import { Loader2, Sun, Moon, Heart, Wallet } from "lucide-react";
 import styles from "./auth.module.css";
 
 export default function AuthPage() {
   const { user, loading, login, register } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [form, setForm] = useState({ email: "", password: "", fullName: "" });
@@ -38,6 +38,12 @@ export default function AuthPage() {
     }
   };
 
+  const cycleTheme = () => {
+    if (theme === "light") setTheme("dark");
+    else if (theme === "dark") setTheme("pink");
+    else setTheme("light");
+  };
+
   if (loading) return (
     <div className={styles.loadingScreen}>
       <Loader2 size={20} className={styles.spinner} />
@@ -49,18 +55,21 @@ export default function AuthPage() {
       <div className={styles.box}>
         <div className={styles.header}>
           <div className={styles.brandRow}>
-            <div className={styles.logoMark}>JT</div>
-            <button type="button" className={styles.themeToggleBtn} onClick={toggleTheme} title={`Mode ${theme === "dark" ? "Terang" : "Gelap"}`}>
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+            <div className={styles.logoMark} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Wallet size={20} />
+              <span>FT</span>
+            </div>
+            <button type="button" className={styles.themeToggleBtn} onClick={cycleTheme} title={`Tema: ${theme}`}>
+              {theme === "dark" ? <Sun size={14} /> : theme === "pink" ? <Heart size={14} color="#F43F5E" /> : <Moon size={14} />}
             </button>
           </div>
           <h1 className={styles.title}>
-            {mode === "login" ? "Masuk ke JobTracker" : "Buat Akun JobTracker"}
+            {mode === "login" ? "Masuk ke Finance Tracker" : "Buat Akun Finance Tracker"}
           </h1>
           <p className={styles.subtitle}>
             {mode === "login"
-              ? "Kelola dan pantau seluruh status lamaran kerjamu."
-              : "Daftar untuk mulai mencatat lamaran kerja."}
+              ? "Kelola keuangan, dompet, dan cicilan harian kamu."
+              : "Daftar untuk mulai mencatat keuangan secara pintar."}
           </p>
         </div>
 
@@ -71,7 +80,7 @@ export default function AuthPage() {
               <input
                 className={styles.input}
                 type="text"
-                placeholder="Budi Santoso"
+                placeholder="Eeja Makkutujuh"
                 value={form.fullName}
                 onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
                 required
