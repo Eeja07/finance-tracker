@@ -56,7 +56,6 @@ export class AuditLogRepository extends BaseRepository<Prisma.AuditLogDelegate> 
         endpoint: data.endpoint,
         ipAddress: data.ipAddress || null,
         userAgent: data.userAgent || null,
-        requestId: data.requestId || null,
         metadata: (data.metadata as Prisma.InputJsonValue) ?? {},
         ...(data.createdAt && { createdAt: data.createdAt }),
       },

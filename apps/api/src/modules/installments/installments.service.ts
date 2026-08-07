@@ -73,7 +73,13 @@ export class InstallmentsService {
       });
 
       // Generate payment schedule for all tenor months
-      const paymentsData = [];
+      const paymentsData: {
+        installmentId: string;
+        tenorNumber: number;
+        amount: number;
+        dueDate: Date;
+        status: PaymentStatus;
+      }[] = [];
       for (let i = 1; i <= data.totalTenorMonths; i++) {
         const dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + (i - 1), data.dueDateDay);
         paymentsData.push({
@@ -143,6 +149,7 @@ export class InstallmentsService {
           userId,
           accountId,
           categoryId: category.id,
+          installmentPaymentId: paymentId,
           type: TransactionType.EXPENSE,
           amount: payment.amount,
           date: paidDate,
@@ -163,7 +170,6 @@ export class InstallmentsService {
         data: {
           status: PaymentStatus.PAID,
           paidDate,
-          transactionId: transaction.id,
         },
       });
 
