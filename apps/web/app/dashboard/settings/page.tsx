@@ -3,12 +3,14 @@
 import React, { useState } from 'react';
 import { Settings, Sun, Moon, Heart, User, Shield, Check, Phone } from 'lucide-react';
 import { useTheme } from '../../../lib/theme-context';
+import { useAuth } from '../../../lib/auth-context';
 import styles from './settings.module.css';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const [fullName, setFullName] = useState('Eeja Makkutujuh');
-  const [email, setEmail] = useState('eeja@finance.fun');
+  const { user } = useAuth();
+  const [fullName, setFullName] = useState(user?.fullName || 'Pengguna');
+  const [email, setEmail] = useState(user?.email || 'user@example.com');
   const [phone, setPhone] = useState('081234567890');
   const [savedSuccess, setSavedSuccess] = useState(false);
 

@@ -17,11 +17,18 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { useTheme, Theme } from '../lib/theme-context';
+import { useAuth } from '../lib/auth-context';
 import styles from './Sidebar.module.css';
 
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const { user } = useAuth();
+
+  const displayName = user?.fullName || 'Pengguna';
+  const initials = user?.fullName
+    ? user.fullName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
+    : 'FT';
 
   const navItems = [
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -98,9 +105,9 @@ export function Sidebar() {
         </div>
 
         <div className={styles.userCard}>
-          <div className={styles.avatar}>EM</div>
+          <div className={styles.avatar}>{initials}</div>
           <div className={styles.userInfo}>
-            <div className={styles.userName}>Eeja Makkutujuh</div>
+            <div className={styles.userName}>{displayName}</div>
             <div className={styles.userRole}>PRO Member</div>
           </div>
         </div>

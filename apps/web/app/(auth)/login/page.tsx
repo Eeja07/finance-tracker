@@ -55,21 +55,26 @@ export default function AuthPage() {
       <div className={styles.box}>
         <div className={styles.header}>
           <div className={styles.brandRow}>
-            <div className={styles.logoMark} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Wallet size={20} />
-              <span>FT</span>
+            <div className={styles.brandBadge}>
+              <div className={styles.logoIconWrapper}>
+                <Wallet size={20} className={styles.logoIcon} />
+              </div>
+              <div className={styles.brandTextGroup}>
+                <span className={styles.brandName}>Finance Tracker</span>
+                <span className={styles.brandTag}>Smart Money Management</span>
+              </div>
             </div>
             <button type="button" className={styles.themeToggleBtn} onClick={cycleTheme} title={`Tema: ${theme}`}>
               {theme === "dark" ? <Sun size={14} /> : theme === "pink" ? <Heart size={14} color="#F43F5E" /> : <Moon size={14} />}
             </button>
           </div>
           <h1 className={styles.title}>
-            {mode === "login" ? "Masuk ke Finance Tracker" : "Buat Akun Finance Tracker"}
+            {mode === "login" ? "Selamat Datang" : "Buat Akun Baru"}
           </h1>
           <p className={styles.subtitle}>
             {mode === "login"
-              ? "Kelola keuangan, dompet, dan cicilan harian kamu."
-              : "Daftar untuk mulai mencatat keuangan secara pintar."}
+              ? "Masuk untuk mengelola transaksi, dompet, dan cicilan kamu."
+              : "Daftar gratis untuk mulai mencatat keuangan harian."}
           </p>
         </div>
 
@@ -80,7 +85,7 @@ export default function AuthPage() {
               <input
                 className={styles.input}
                 type="text"
-                placeholder="Eeja Makkutujuh"
+                placeholder="Contoh: Budi Santoso"
                 value={form.fullName}
                 onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))}
                 required
@@ -88,22 +93,22 @@ export default function AuthPage() {
             </div>
           )}
           <div className={styles.field}>
-            <label className={styles.label}>Email</label>
+            <label className={styles.label}>Alamat Email</label>
             <input
               className={styles.input}
               type="email"
-              placeholder="nama@email.com"
+              placeholder="nama@domain.com"
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
               required
             />
           </div>
           <div className={styles.field}>
-            <label className={styles.label}>Password</label>
+            <label className={styles.label}>Kata Sandi</label>
             <input
               className={styles.input}
               type="password"
-              placeholder="Minimal 8-12 karakter (huruf besar, angka, simbol)"
+              placeholder="••••••••"
               value={form.password}
               onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
               required

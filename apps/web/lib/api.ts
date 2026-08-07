@@ -92,6 +92,20 @@ export async function request<T>(path: string, opts: RequestInit = {}): Promise<
   return fetchLatest<T>(path, opts);
 }
 
+function buildUrl(path: string): string {
+  let base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api";
+  base = base.replace(/\/+$/, "");
+  
+  let clean = path;
+  clean = clean.replace(/^\/api\/v1\//, "/").replace(/^\/v1\//, "/");
+  if (base.endsWith("/api") && clean.startsWith("/api/")) {
+    clean = clean.substring(4);
+  }
+  if (!clean.startsWith("/")) clean = "/" + clean;
+  
+  return `${base}${clean}`;
+}
+
 async function fetchLatest<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const method = (opts.method || "GET").toUpperCase();
   if (method === "GET" && pendingMap.has(path)) {
@@ -101,7 +115,8 @@ async function fetchLatest<T>(path: string, opts: RequestInit = {}): Promise<T> 
   const promise = (async () => {
     try {
       const token = getToken();
-      const res = await fetch(`${API_BASE}${path}`, {
+      const url = buildUrl(path);
+      const res = await fetch(url, {
         ...opts,
         headers: {
           "Content-Type": "application/json",
@@ -133,22 +148,22 @@ async function fetchLatest<T>(path: string, opts: RequestInit = {}): Promise<T> 
 // Auth
 export const authApi = {
   register: (body: { email: string; password: string; fullName: string }) =>
-    request<{ accessToken: string; refreshToken: string; user: User }>("/api/v1/auth/register", {
+    request<{ accessToken: string; refreshToken: string; user: User }>("/auth/register", {
       method: "POST", body: JSON.stringify(body),
     }),
   login: (body: { email: string; password: string }) =>
-    request<{ accessToken: string; refreshToken: string; user: User }>("/api/v1/auth/login", {
+    request<{ accessToken: string; refreshToken: string; user: User }>("/auth/login", {
       method: "POST", body: JSON.stringify(body),
     }),
   me: async () => {
-    const res = await request<User | { user: User }>("/api/v1/auth/me");
+    const res = await request<User | { user: User }>("/auth/me");
     return "user" in res ? (res as { user: User }) : { user: res as User };
   },
   refreshToken: (refreshToken: string) =>
-    request<{ accessToken: string; refreshToken: string }>("/api/v1/auth/refresh", {
+    request<{ accessToken: string; refreshToken: string }>("/auth/refresh", {
       method: "POST", body: JSON.stringify({ refreshToken }),
     }),
-  logout: () => request("/api/v1/auth/logout", { method: "POST" }),
+  logout: () => request("/auth/logout", { method: "POST" }),
 };
 
 // Applications
