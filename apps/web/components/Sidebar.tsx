@@ -15,12 +15,18 @@ import {
   Moon,
   Heart,
   TrendingUp,
+  X,
 } from 'lucide-react';
-import { useTheme, Theme } from '../lib/theme-context';
+import { useTheme } from '../lib/theme-context';
 import { useAuth } from '../lib/auth-context';
 import styles from './Sidebar.module.css';
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
@@ -41,77 +47,89 @@ export function Sidebar() {
   ];
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.header}>
-        <div className={styles.logo}>
-          <div className={styles.logoIcon}>
-            <TrendingUp size={22} />
+    <>
+      <div
+        className={`${styles.overlay} ${isOpen ? styles.overlayOpen : ''}`}
+        onClick={onClose}
+      />
+      <aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ''}`}>
+        <div className={styles.header}>
+          <div className={styles.logo}>
+            <div className={styles.logoIcon}>
+              <TrendingUp size={18} />
+            </div>
+            <div className={styles.logoText}>
+              <span className={styles.appName}>FinanceTracker</span>
+              <span className={styles.appTag}>Personal Vault</span>
+            </div>
           </div>
-          <div className={styles.logoText}>
-            <span className={styles.appName}>FinanceTracker</span>
-            <span className={styles.appTag}>Personal Vault</span>
-          </div>
-        </div>
-      </div>
-
-      <nav className={styles.nav}>
-        <div className={styles.navGroupTitle}>MENU UTAMA</div>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`${styles.navLink} ${isActive ? styles.active : ''}`}
-            >
-              <Icon size={18} />
-              <span>{item.label}</span>
-              {item.badge && <span className={styles.badge}>{item.badge}</span>}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className={styles.footer}>
-        <div className={styles.themeSection}>
-          <span className={styles.themeLabel}>TEMA TAMPILAN</span>
-          <div className={styles.themeToggleGroup}>
-            <button
-              onClick={() => setTheme('light')}
-              className={`${styles.themeBtn} ${theme === 'light' ? styles.activeTheme : ''}`}
-              title="Light Theme"
-            >
-              <Sun size={15} />
-              <span>Light</span>
+          {onClose && (
+            <button className={styles.closeBtn} onClick={onClose} aria-label="Tutup menu">
+              <X size={18} />
             </button>
-            <button
-              onClick={() => setTheme('dark')}
-              className={`${styles.themeBtn} ${theme === 'dark' ? styles.activeTheme : ''}`}
-              title="Dark Theme"
-            >
-              <Moon size={15} />
-              <span>Dark</span>
-            </button>
-            <button
-              onClick={() => setTheme('pink')}
-              className={`${styles.themeBtn} ${theme === 'pink' ? styles.pinkBtnActive : ''}`}
-              title="Pink Female Theme"
-            >
-              <Heart size={15} color="#ec4899" />
-              <span>Pink</span>
-            </button>
-          </div>
+          )}
         </div>
 
-        <div className={styles.userCard}>
-          <div className={styles.avatar}>{initials}</div>
-          <div className={styles.userInfo}>
-            <div className={styles.userName}>{displayName}</div>
-            <div className={styles.userRole}>PRO Member</div>
+        <nav className={styles.nav}>
+          <div className={styles.navGroupTitle}>MENU UTAMA</div>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                className={`${styles.navLink} ${isActive ? styles.active : ''}`}
+              >
+                <Icon size={16} />
+                <span>{item.label}</span>
+                {item.badge && <span className={styles.badge}>{item.badge}</span>}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className={styles.footer}>
+          <div className={styles.themeSection}>
+            <span className={styles.themeLabel}>TEMA TAMPILAN</span>
+            <div className={styles.themeToggleGroup}>
+              <button
+                onClick={() => setTheme('light')}
+                className={`${styles.themeBtn} ${theme === 'light' ? styles.activeTheme : ''}`}
+                title="Light Theme"
+              >
+                <Sun size={14} />
+                <span>Light</span>
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                className={`${styles.themeBtn} ${theme === 'dark' ? styles.activeTheme : ''}`}
+                title="Dark Theme"
+              >
+                <Moon size={14} />
+                <span>Dark</span>
+              </button>
+              <button
+                onClick={() => setTheme('pink')}
+                className={`${styles.themeBtn} ${theme === 'pink' ? styles.pinkBtnActive : ''}`}
+                title="Pink Female Theme"
+              >
+                <Heart size={14} />
+                <span>Pink</span>
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.userCard}>
+            <div className={styles.avatar}>{initials}</div>
+            <div className={styles.userInfo}>
+              <div className={styles.userName}>{displayName}</div>
+              <div className={styles.userRole}>PRO Member</div>
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

@@ -10,6 +10,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  transition: margin-left 0.2s ease;
 }
 
 .topNavbar {
@@ -23,6 +24,25 @@
   position: sticky;
   top: 0;
   z-index: 30;
+}
+
+.navTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menuToggleBtn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  cursor: pointer;
 }
 
 .welcomeText {
@@ -70,4 +90,41 @@
   max-width: 1280px;
   width: 100%;
   margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .mainContent {
+    margin-left: 0;
+  }
+
+  .topNavbar {
+    padding: 0 16px;
+  }
+
+  .menuToggleBtn {
+    display: flex;
+  }
+
+  .contentBody {
+    padding: 16px;
+  }
+
+  .dateBadge {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .welcomeText {
+    font-size: 0.85rem;
+    margin-right: 0;
+  }
+
+  .waStatusBadge span:last-child {
+    display: none;
+  }
+
+  .waStatusBadge {
+    padding: 4px;
+  }
 }

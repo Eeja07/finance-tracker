@@ -186,3 +186,9 @@
   color: var(--text-muted);
   line-height: 1.5;
 }
+
+@media (max-width: 1024px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
