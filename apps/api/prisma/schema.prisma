@@ -1,0 +1,266 @@
+// Finance Tracker Prisma Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum AccountType {
+  BANK
+  EWALLET
+  CASH
+  CREDIT_CARD
+  INVESTMENT
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum InstallmentStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+// ==========================================
+// MODELS
+// ==========================================
+
+model User {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String    @map("password_hash") @db.VarChar(255)
+  fullName        String    @map("full_name") @db.VarChar(255)
+  phone           String?   @db.VarChar(50)
+  avatarUrl       String?   @map("avatar_url") @db.Text
+  themePreference String    @default("pink") @map("theme_preference") @db.VarChar(20) // "light" | "dark" | "pink"
+  currency        String    @default("IDR") @db.VarChar(10)
+  isEmailVerified Boolean   @default(true) @map("is_email_verified")
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  accounts        Account[]
+  categories      Category[]
+  transactions    Transaction[]
+  installments    Installment[]
+  budgets         Budget[]
+  refreshSessions RefreshSession[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+model Account {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  name          String      @db.VarChar(255)
+  type          AccountType @default(BANK)
+  accountNumber String?     @map("account_number") @db.VarChar(100)
+  balance       Float       @default(0)
+  color         String      @default("#EC4899") @db.VarChar(50)
+  icon          String?     @db.VarChar(50)
+  isArchived    Boolean     @default(false) @map("is_archived")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  installments Installment[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Category {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String?         @map("user_id") @db.Uuid
+  name            String          @db.VarChar(255)
+  type            TransactionType @default(EXPENSE)
+  icon            String?         @db.VarChar(50)
+  color           String?         @db.VarChar(50)
+  isSystemDefault Boolean         @default(false) @map("is_system_default")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@index([userId])
+  @@index([type])
+  @@map("categories")
+}
+
+model Transaction {
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String          @map("user_id") @db.Uuid
+  accountId            String          @map("account_id") @db.Uuid
+  categoryId           String          @map("category_id") @db.Uuid
+  installmentPaymentId String?         @unique @map("installment_payment_id") @db.Uuid
+  type                 TransactionType @default(EXPENSE)
+  amount               Float
+  date                 DateTime        @default(now()) @db.Timestamptz(6)
+  description          String          @db.VarChar(500)
+  recipientOrPayer     String?         @map("recipient_or_payer") @db.VarChar(255)
+  notes                String?         @db.Text
+  attachmentUrl        String?         @map("attachment_url") @db.Text
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account            Account             @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category           Category            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  installmentPayment InstallmentPayment? @relation(fields: [installmentPaymentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, date])
+  @@index([userId, type])
+  @@index([accountId])
+  @@index([categoryId])
+  @@map("transactions")
+}
+
+model Installment {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String            @map("user_id") @db.Uuid
+  accountId            String?           @map("account_id") @db.Uuid
+  title                String            @db.VarChar(255)
+  provider             String            @db.VarChar(255)
+  totalAmount          Float             @map("total_amount")
+  monthlyAmount        Float             @map("monthly_amount")
+  totalTenorMonths     Int               @map("total_tenor_months")
+  remainingTenorMonths Int               @map("remaining_tenor_months")
+  startDate            DateTime          @map("start_date") @db.Timestamptz(6)
+  dueDateDay           Int               @map("due_date_day")
+  interestRate         Float             @default(0) @map("interest_rate")
+  status               InstallmentStatus @default(ACTIVE)
+  notes                String?           @db.Text
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account  Account?             @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  payments InstallmentPayment[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("installments")
+}
+
+model InstallmentPayment {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  installmentId String        @map("installment_id") @db.Uuid
+  tenorNumber   Int           @map("tenor_number")
+  amount        Float
+  dueDate       DateTime      @map("due_date") @db.Timestamptz(6)
+  paidDate      DateTime?     @map("paid_date") @db.Timestamptz(6)
+  status        PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  installment Installment  @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  transaction Transaction?
+
+  @@index([installmentId])
+  @@index([status, dueDate])
+  @@map("installment_payments")
+}
+
+model Budget {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  month       Int
+  year        Int
+  amountLimit Float    @map("amount_limit")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, month, year])
+  @@index([userId])
+  @@map("budgets")
+}
+
+model RefreshSession {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_sessions")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  resource   String   @db.VarChar(100)
+  resourceId String?  @map("resource_id") @db.VarChar(255)
+  method     String   @db.VarChar(10)
+  endpoint   String   @db.VarChar(255)
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  metadata   Json?    @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String   @db.VarChar(500)
+  body      String   @db.Text
+  type      String   @db.VarChar(100)
+  isRead    Boolean  @default(false) @map("is_read")
+  metadata  Json?    @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}

@@ -1,0 +1,44 @@
+name: Finance Tracker CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Self-Hosted Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST || '192.168.0.103' }}
+          username: ${{ secrets.SERVER_USER || 'eeja' }}
+          password: ${{ secrets.SERVER_PASSWORD || 'eejamakkutujuh' }}
+          script: |
+            echo "🚀 Starting Finance Tracker Deployment..."
+            
+            # Ensure directories exist
+            mkdir -p /opt/apps/finance-tracker
+            mkdir -p /opt/homelab/compose/finance-tracker
+            mkdir -p /opt/homelab/compose/nginx/conf.d
+
+            # Sync app source code
+            if [ ! -d "/opt/apps/finance-tracker/.git" ]; then
+              git clone git@github.com:Eeja07/finance-tracker.git /opt/apps/finance-tracker
+            else
+              cd /opt/apps/finance-tracker && git fetch --all && git reset --hard origin/main
+            fi
+
+            # Copy Docker & Nginx Configs
+            cp /opt/apps/finance-tracker/docker/finance-compose.yml /opt/homelab/compose/finance-tracker/compose.yml
+            cp /opt/apps/finance-tracker/docker/nginx-finance-tracker.conf /opt/homelab/compose/nginx/conf.d/finance.conf
+
+            # Reload Nginx Container
+            docker exec nginx nginx -s reload || true
+
+            # Build and Run Containers
+            cd /opt/homelab/compose/finance-tracker
+            docker compose pull || true
+            docker compose up -d --build --remove-orphans
+
+            echo "✅ Finance Tracker Deployed Successfully!"

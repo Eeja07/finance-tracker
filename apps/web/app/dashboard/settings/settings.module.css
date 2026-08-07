@@ -1,0 +1,214 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.headerBanner {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 30px;
+  box-shadow: var(--shadow);
+}
+
+.headerBanner h2 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.headerBanner p {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: var(--shadow);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 14px;
+}
+
+.cardHeader h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.accentIcon {
+  color: var(--accent);
+}
+
+.sectionSub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.themeCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.themeOptionCard {
+  background: var(--bg-subtle);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.themeOptionCard:hover {
+  border-color: var(--border-focus);
+  transform: translateY(-2px);
+}
+
+.activeOption {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.activePinkOption {
+  border-color: #F43F5E;
+  background: #FFF1F2;
+}
+
+.themeIconBox {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.themeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.themeTitle {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.themeDesc {
+  font-size: 0.76rem;
+  color: var(--text-subtle);
+}
+
+.checkIcon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: var(--accent);
+}
+
+.pinkCheckIcon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  color: #F43F5E;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 540px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formGroup label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.formGroup input {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.inputWithIcon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 12px;
+  color: var(--text-muted);
+}
+
+.inputWithIcon input {
+  border: none;
+  background: transparent;
+  flex: 1;
+  padding: 10px 0;
+  outline: none;
+}
+
+.formActions {
+  display: flex;
+  margin-top: 8px;
+}
+
+.saveBtn {
+  background: var(--accent);
+  color: #ffffff;
+  padding: 10px 22px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.successNotice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--income-bg);
+  color: var(--income-color);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
