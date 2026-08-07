@@ -1,13 +1,34 @@
 'use client';
 
-import React, { useState } from 'react';
-import { MessageSquare, Bot, CheckCircle, Smartphone, Send, HelpCircle, Terminal } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Bot, CheckCircle, Smartphone, Send, Terminal, QrCode, AlertCircle, RefreshCw } from 'lucide-react';
+import { whatsappApi, WhatsappStatus } from '../../../lib/api';
 import styles from './whatsapp.module.css';
 
 export default function WhatsAppPage() {
-  const [testPhone, setTestPhone] = useState('6281234567890');
+  const [statusData, setStatusData] = useState<WhatsappStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [testPhone, setTestPhone] = useState('6281288092766');
   const [testMessage, setTestMessage] = useState('!hariini');
   const [logResponse, setLogResponse] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+
+  const fetchStatus = async () => {
+    try {
+      const res = await whatsappApi.getStatus();
+      setStatusData(res);
+    } catch (err: any) {
+      setStatusData({ status: 'disconnected', connectedUser: null, hasQr: false });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const commands = [
     {
@@ -37,10 +58,20 @@ export default function WhatsAppPage() {
     },
   ];
 
-  const handleSendTest = (e: React.FormEvent) => {
+  const handleSendTest = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLogResponse(`✅ Pesan simulasi terkirim ke ${testPhone}: "${testMessage}"\n[Bot Reply]: Rincian pengeluaran hari ini telah diproses!`);
+    setSending(true);
+    try {
+      await whatsappApi.sendWebhookTest(testPhone, testMessage);
+      setLogResponse(`✅ Pesan simulasi terkirim ke ${testPhone}: "${testMessage}"\n[Bot Reply]: Perintah berhasil dikirim ke gateway WA! Cek balasan di aplikasi WA kamu.`);
+    } catch (err: any) {
+      setLogResponse(`❌ Gagal mengirim perintah: ${err.message || 'Network error'}`);
+    } finally {
+      setSending(false);
+    }
   };
+
+  const isConnected = statusData?.status === 'connected';
 
   return (
     <div className={styles.container}>
@@ -50,11 +81,48 @@ export default function WhatsAppPage() {
           <h2>Integrasi Bot WhatsApp</h2>
           <p>Terhubung langsung dengan gateway WhatsApp untuk cek pengeluaran, cicilan, dan reminder otomatis.</p>
         </div>
-        <div className={styles.statusBadge}>
-          <CheckCircle size={16} />
-          <span>Status Bot: Connected</span>
+        <div>
+          {isConnected ? (
+            <div className={styles.statusBadge}>
+              <CheckCircle size={16} />
+              <span>Status Bot: Connected (+{statusData?.connectedUser || 'WA Active'})</span>
+            </div>
+          ) : (
+            <div className={styles.disconnectedBadge}>
+              <AlertCircle size={16} />
+              <span>Status Bot: Disconnected (Pindai QR Code)</span>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* QR Code Section if disconnected */}
+      {!isConnected && (
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <QrCode size={20} className={styles.accentIcon} />
+            <h3>Pindai QR Code WhatsApp</h3>
+          </div>
+          <div className={styles.qrContainer}>
+            {statusData?.qrDataUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={statusData.qrDataUrl} alt="WhatsApp QR Code" className={styles.qrImage} />
+                <p className={styles.qrText}>
+                  Buka WhatsApp di ponsel kamu &gt; Menu &gt; Perangkat Tertaut (Linked Devices) &gt; Tautkan Perangkat (Link a Device), lalu pindai kode QR di atas.
+                </p>
+              </>
+            ) : (
+              <>
+                <RefreshCw size={24} className={styles.accentIcon} />
+                <p className={styles.qrText}>
+                  {loading ? 'Memuat QR Code...' : 'Sedang menyiapkan sesi WhatsApp... QR Code akan muncul otomatis dalam beberapa detik.'}
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className={styles.contentGrid}>
         {/* Available Commands */}
@@ -102,9 +170,9 @@ export default function WhatsAppPage() {
                 />
               </div>
 
-              <button type="submit" className={styles.sendBtn}>
+              <button type="submit" className={styles.sendBtn} disabled={sending}>
                 <Send size={16} />
-                <span>Kirim Tes Perintah</span>
+                <span>{sending ? 'Mengirim...' : 'Kirim Tes Perintah'}</span>
               </button>
             </form>
 

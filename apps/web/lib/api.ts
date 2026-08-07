@@ -306,3 +306,20 @@ export const notificationApi = {
   markAllRead: () => request<{ success: boolean }>("/api/v1/gmail/notifications/read-all", { method: "PATCH" }),
 };
 
+export interface WhatsappStatus {
+  status: string;
+  connectedUser: string | null;
+  hasQr: boolean;
+  qrDataUrl?: string;
+}
+
+export const whatsappApi = {
+  getStatus: () => request<WhatsappStatus>("/whatsapp/status"),
+  sendWebhookTest: (from: string, body: string) =>
+    request<{ success: boolean }>("/whatsapp/webhook", {
+      method: "POST",
+      body: JSON.stringify({ from, body }),
+    }),
+};
+
+
