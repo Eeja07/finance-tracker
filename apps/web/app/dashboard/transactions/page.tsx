@@ -15,13 +15,7 @@ interface TransactionItem {
 }
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<TransactionItem[]>([
-    { id: '1', type: 'INCOME', description: 'Gaji Bulanan PT Maju Bersama', amount: 15000000, category: 'Gaji', account: 'BCA', date: '2026-08-01' },
-    { id: '2', type: 'EXPENSE', description: 'Makan Siang Nasi Padang', amount: 45000, category: 'Makanan & Minuman', account: 'GoPay', date: '2026-08-07' },
-    { id: '3', type: 'EXPENSE', description: 'Kopi Susu Gula Aren', amount: 28000, category: 'Makanan & Minuman', account: 'GoPay', date: '2026-08-07' },
-    { id: '4', type: 'EXPENSE', description: 'Isi Bensin Pertamax', amount: 150000, category: 'Transportasi', account: 'BCA', date: '2026-08-07' },
-    { id: '5', type: 'EXPENSE', description: 'Tagihan Listrik PLN & IndiHome', amount: 350000, category: 'Tagihan', account: 'BCA', date: '2026-08-03' },
-  ]);
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL');
@@ -124,29 +118,37 @@ export default function TransactionsPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((t) => (
-              <tr key={t.id}>
-                <td>
-                  <div className={styles.txDescGroup}>
-                    <div className={t.type === 'INCOME' ? styles.incomeBadge : styles.expenseBadge}>
-                      {t.type === 'INCOME' ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
-                    </div>
-                    <span className={styles.txDesc}>{t.description}</span>
-                  </div>
-                </td>
-                <td><span className={styles.categoryChip}>{t.category}</span></td>
-                <td><span className={styles.accountChip}>{t.account}</span></td>
-                <td>{t.date}</td>
-                <td className={t.type === 'INCOME' ? styles.incomeText : styles.expenseText}>
-                  {t.type === 'INCOME' ? '+' : '-'} Rp {t.amount.toLocaleString('id-ID')}
-                </td>
-                <td>
-                  <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn}>
-                    <Trash2 size={16} />
-                  </button>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                  Belum ada data transaksi. Tambah transaksi baru untuk mencatat pengeluaran/pemasukan kamu.
                 </td>
               </tr>
-            ))}
+            ) : (
+              filtered.map((t) => (
+                <tr key={t.id}>
+                  <td>
+                    <div className={styles.txDescGroup}>
+                      <div className={t.type === 'INCOME' ? styles.incomeBadge : styles.expenseBadge}>
+                        {t.type === 'INCOME' ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+                      </div>
+                      <span className={styles.txDesc}>{t.description}</span>
+                    </div>
+                  </td>
+                  <td><span className={styles.categoryChip}>{t.category}</span></td>
+                  <td><span className={styles.accountChip}>{t.account}</span></td>
+                  <td>{t.date}</td>
+                  <td className={t.type === 'INCOME' ? styles.incomeText : styles.expenseText}>
+                    {t.type === 'INCOME' ? '+' : '-'} Rp {t.amount.toLocaleString('id-ID')}
+                  </td>
+                  <td>
+                    <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn}>
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

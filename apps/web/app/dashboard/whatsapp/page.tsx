@@ -1,25 +1,39 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Bot, CheckCircle, Smartphone, Send, Terminal, QrCode, AlertCircle, RefreshCw, LogOut } from 'lucide-react';
+import {
+  QrCode,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Send,
+  LogOut,
+  ShieldCheck,
+  Terminal,
+  Smartphone,
+} from 'lucide-react';
 import { whatsappApi, WhatsappStatus } from '../../../lib/api';
 import styles from './whatsapp.module.css';
 
 export default function WhatsAppPage() {
-  const [statusData, setStatusData] = useState<WhatsappStatus | null>(null);
+  const [waState, setWaState] = useState<WhatsappStatus>({
+    status: 'disconnected',
+    connectedUser: null,
+    hasQr: false,
+  });
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
-  const [testPhone, setTestPhone] = useState('6281288092766');
+  const [testPhone, setTestPhone] = useState('');
   const [testMessage, setTestMessage] = useState('!hariini');
-  const [logResponse, setLogResponse] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
+  const [sendingMsg, setSendingMsg] = useState(false);
+  const [msgResult, setMsgResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const fetchStatus = async () => {
     try {
-      const res = await whatsappApi.getStatus();
-      setStatusData(res);
-    } catch (err: any) {
-      setStatusData({ status: 'disconnected', connectedUser: null, hasQr: false });
+      const data = await whatsappApi.getStatus();
+      setWaState(data);
+    } catch {
+      setWaState({ status: 'disconnected', connectedUser: null, hasQr: false });
     } finally {
       setLoading(false);
     }
@@ -27,196 +41,220 @@ export default function WhatsAppPage() {
 
   useEffect(() => {
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
-    return () => clearInterval(interval);
+    const timer = setInterval(() => {
+      fetchStatus();
+    }, 3000);
+    return () => clearInterval(timer);
   }, []);
 
-  const handleResetSession = async () => {
-    if (!confirm('Apakah kamu yakin ingin mereset sesi WhatsApp & memutus koneksi?')) return;
+  const handleLogout = async () => {
+    if (!confirm('Apakah Anda yakin ingin melepaskan koneksi WhatsApp Bot? Anda perlu scan ulang QR code untuk terhubung kembali.')) {
+      return;
+    }
     setResetting(true);
     try {
       await whatsappApi.resetSession();
-      setLogResponse('🔄 Sesi WhatsApp berhasil di-reset. Menyiapkan QR Code baru...');
       await fetchStatus();
     } catch (err: any) {
-      setLogResponse(`❌ Gagal reset sesi: ${err.message || 'Error'}`);
+      alert('Gagal memutuskan koneksi WhatsApp: ' + (err.message || 'Error'));
     } finally {
       setResetting(false);
     }
   };
 
-  const commands = [
-    {
-      cmd: '!hariini atau !pengeluaran',
-      desc: 'Cek total & rincian pengeluaran harian kamu untuk hari ini.',
-      example: '!hariini',
-    },
-    {
-      cmd: '!cicilan',
-      desc: 'Cek daftar cicilan aktif yang sedang berjalan, sisa bulan, & tanggal jatuh tempo.',
-      example: '!cicilan',
-    },
-    {
-      cmd: '!overview atau !saldo',
-      desc: 'Cek total aset dompet, saldo per bank/e-wallet, & cashflow bulan ini.',
-      example: '!overview',
-    },
-    {
-      cmd: '!tambah [tipe] [jumlah] | [kategori] | [deskripsi]',
-      desc: 'Catat transaksi pemasukan/pengeluaran baru secara instan dari WhatsApp.',
-      example: '!tambah pengeluaran 35000 | Makanan | Makan Siang',
-    },
-    {
-      cmd: '!help atau !bantuan',
-      desc: 'Tampilkan menu bantuan bot dan seluruh perintah yang tersedia.',
-      example: '!help',
-    },
-  ];
-
-  const handleSendTest = async (e: React.FormEvent) => {
+  const handleSendTestMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSending(true);
+    if (!testPhone) {
+      setMsgResult({ success: false, message: 'Masukkan nomor HP tujuan!' });
+      return;
+    }
+
+    setSendingMsg(true);
+    setMsgResult(null);
     try {
       await whatsappApi.sendWebhookTest(testPhone, testMessage);
-      setLogResponse(`✅ Pesan simulasi terkirim ke ${testPhone}: "${testMessage}"\n[Bot Reply]: Perintah berhasil dikirim ke gateway WA! Cek balasan di aplikasi WA kamu.`);
+      setMsgResult({
+        success: true,
+        message: `Pesan uji coba "${testMessage}" berhasil dikirim ke gateway untuk nomor ${testPhone}.`,
+      });
     } catch (err: any) {
-      setLogResponse(`❌ Gagal mengirim perintah: ${err.message || 'Network error'}`);
+      setMsgResult({
+        success: false,
+        message: `Gagal mengirim pesan: ${err.message || 'Network error'}`,
+      });
     } finally {
-      setSending(false);
+      setSendingMsg(false);
     }
   };
 
-  const isConnected = statusData?.status === 'connected';
+  const isConnected = waState.status === 'connected';
 
   return (
     <div className={styles.container}>
-      {/* Banner */}
+      {/* Header Banner */}
       <div className={styles.headerBanner}>
         <div>
           <h2>Integrasi Bot WhatsApp</h2>
-          <p>Terhubung langsung dengan gateway WhatsApp untuk cek pengeluaran, cicilan, dan reminder otomatis.</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {isConnected ? (
-            <div className={styles.statusBadge}>
-              <CheckCircle size={16} />
-              <span>Status Bot: Connected (+{statusData?.connectedUser || 'WA Active'})</span>
-            </div>
-          ) : (
-            <div className={styles.disconnectedBadge}>
-              <AlertCircle size={16} />
-              <span>Status Bot: Disconnected</span>
-            </div>
-          )}
-
-          <button
-            onClick={handleResetSession}
-            disabled={resetting}
-            className={styles.sendBtn}
-            style={{ background: 'var(--bg-subtle)', color: 'var(--text)', border: '1px solid var(--border)' }}
-            title="Reset Sesi & Generate QR Baru"
-          >
-            <LogOut size={14} />
-            <span>{resetting ? 'Resetting...' : 'Reset Sesi / QR Baru'}</span>
-          </button>
+          <p>Terhubung langsung dengan gateway WhatsApp private untuk pencatatan transaksi & reminder otomatis.</p>
         </div>
       </div>
 
-      {/* QR Code Section if disconnected or QR ready */}
-      {!isConnected && (
-        <div className={styles.card}>
-          <div className={styles.cardHeader}>
-            <QrCode size={20} className={styles.accentIcon} />
-            <h3>Pindai QR Code WhatsApp</h3>
-          </div>
-          <div className={styles.qrContainer}>
-            {statusData?.qrDataUrl ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={statusData.qrDataUrl} alt="WhatsApp QR Code" className={styles.qrImage} />
-                <p className={styles.qrText}>
-                  Buka WhatsApp di ponsel kamu &gt; Menu &gt; Perangkat Tertaut (Linked Devices) &gt; Tautkan Perangkat (Link a Device), lalu pindai kode QR di atas.
-                </p>
-              </>
-            ) : (
-              <>
-                <RefreshCw size={24} className={styles.accentIcon} />
-                <p className={styles.qrText}>
-                  {loading ? 'Memuat QR Code...' : 'Sedang menyiapkan sesi WhatsApp baru... Jika QR tidak muncul dalam 10 detik, klik tombol "Reset Sesi / QR Baru" di atas.'}
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
       <div className={styles.contentGrid}>
-        {/* Available Commands */}
+        {/* Card 1: Connection & QR Scan */}
         <div className={styles.card}>
-          <div className={styles.cardHeader}>
-            <Terminal size={20} className={styles.accentIcon} />
-            <h3>Daftar Perintah WA Bot</h3>
-          </div>
-          <div className={styles.commandList}>
-            {commands.map((c, i) => (
-              <div key={i} className={styles.commandRow}>
-                <div className={styles.commandCode}>{c.cmd}</div>
-                <div className={styles.commandDesc}>{c.desc}</div>
-                <div className={styles.commandExample}>
-                  <span>Contoh:</span> <code>{c.example}</code>
+          <h3 className={styles.cardHeaderTitle}>
+            <QrCode size={18} className={styles.accentIcon} />
+            Koneksi WhatsApp Gateway
+          </h3>
+
+          <div className={styles.qrContainer}>
+            {loading ? (
+              <div style={{ padding: '3rem 0', color: 'var(--text-muted)' }}>
+                <RefreshCw size={28} className={styles.spinningIcon} style={{ margin: '0 auto 0.75rem' }} />
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>Memeriksa status koneksi...</p>
+              </div>
+            ) : isConnected ? (
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div className={styles.badgeConnected}>
+                  <CheckCircle2 size={16} />
+                  STATUS: TERHUBUNG
                 </div>
+
+                <div className={styles.connectedDetails}>
+                  <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nomor WA Terhubung:</p>
+                  <p className={styles.connectedUser}>+{waState.connectedUser}</p>
+                  <p style={{ margin: '0.75rem 0 0', color: 'var(--text-subtle)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                    <ShieldCheck size={14} />
+                    Koneksi Multi-Project Persistent (Aktif bersama Job Tracker)
+                  </p>
+                </div>
+
+                <button onClick={handleLogout} disabled={resetting} className={styles.logoutBtn}>
+                  <LogOut size={16} />
+                  {resetting ? 'Memutuskan...' : 'Putuskan Koneksi (Logout)'}
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
+            ) : waState.qrDataUrl || waState.hasQr || waState.status === 'qr_ready' ? (
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div className={styles.badgeQrReady}>
+                  <Smartphone size={15} />
+                  SILAKAN SCAN QR CODE
+                </div>
 
-        {/* Test Console & Status */}
-        <div className={styles.sidebarSection}>
-          <div className={styles.card}>
-            <div className={styles.cardHeader}>
-              <Bot size={20} className={styles.accentIcon} />
-              <h3>Uji Coba Perintah Bot</h3>
-            </div>
-            <form onSubmit={handleSendTest} className={styles.form}>
-              <div className={styles.formGroup}>
-                <label>Nomor WhatsApp</label>
-                <input
-                  type="text"
-                  value={testPhone}
-                  onChange={(e) => setTestPhone(e.target.value)}
-                />
+                {waState.qrDataUrl ? (
+                  <div className={styles.qrCodeFrame}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={waState.qrDataUrl} alt="WhatsApp QR Code" className={styles.qrImage} />
+                  </div>
+                ) : (
+                  <div style={{ padding: '2rem 0', color: 'var(--text-muted)' }}>
+                    <RefreshCw size={28} className={styles.spinningIcon} style={{ margin: '0 auto 0.75rem' }} />
+                    <p style={{ margin: 0, fontSize: '0.85rem' }}>Menyiapkan gambar QR Code...</p>
+                  </div>
+                )}
+
+                <ol className={styles.qrInstructions}>
+                  <li>Buka aplikasi WhatsApp di HP.</li>
+                  <li>Pilih <strong>Perangkat Tertaut (Linked Devices)</strong>.</li>
+                  <li>Klik <strong>Tautkan Perangkat</strong> &amp; Scan QR Code di atas.</li>
+                </ol>
               </div>
-
-              <div className={styles.formGroup}>
-                <label>Perintah (Command)</label>
-                <input
-                  type="text"
-                  value={testMessage}
-                  onChange={(e) => setTestMessage(e.target.value)}
-                />
-              </div>
-
-              <button type="submit" className={styles.sendBtn} disabled={sending}>
-                <Send size={16} />
-                <span>{sending ? 'Mengirim...' : 'Kirim Tes Perintah'}</span>
-              </button>
-            </form>
-
-            {logResponse && (
-              <div className={styles.logBox}>
-                <pre>{logResponse}</pre>
+            ) : (
+              <div style={{ padding: '2rem 0', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <AlertCircle size={32} style={{ color: 'var(--text-subtle)', margin: '0 auto 0.75rem' }} />
+                <p style={{ fontWeight: 600, color: 'var(--text)', margin: 0, fontSize: '0.9rem' }}>Gateway Belum Siap / Disconnected</p>
+                <p style={{ fontSize: '0.82rem', marginTop: '0.35rem' }}>Menyiapkan koneksi WhatsApp Gateway baru...</p>
               </div>
             )}
           </div>
+        </div>
 
-          {/* Reminder Cron Info */}
-          <div className={styles.card}>
-            <div className={styles.cardHeader}>
-              <Smartphone size={20} className={styles.accentIcon} />
-              <h3>Pengingat Otomatis Cicilan</h3>
+        {/* Card 2: Test WhatsApp Notification */}
+        <div className={styles.card}>
+          <h3 className={styles.cardHeaderTitle}>
+            <Send size={18} className={styles.accentIcon} />
+            Kirim Pesan Uji Coba (Test Message)
+          </h3>
+
+          <form onSubmit={handleSendTestMessage} style={{ display: 'flex', flexDirection: 'column', width: '100%', flex: 1, gap: '12px' }}>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Nomor WhatsApp Tujuan (cth: 081234567890)</label>
+              <input
+                type="text"
+                value={testPhone}
+                onChange={(e) => setTestPhone(e.target.value)}
+                placeholder="08xxxxxxxxxx"
+                className={styles.input}
+              />
             </div>
-            <p className={styles.infoText}>
-              Sistem akan secara otomatis mengirim pesan pengingat jatuh tempo cicilan ke WhatsApp kamu pada <b>H-3</b>, <b>H-1</b>, dan pada <b>Hari-H</b> jatuh tempo setiap jam 08:00 WIB.
+
+            <div className={styles.formGroup} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <label className={styles.label}>Isi Perintah / Pesan</label>
+              <input
+                type="text"
+                value={testMessage}
+                onChange={(e) => setTestMessage(e.target.value)}
+                placeholder="!hariini"
+                className={styles.input}
+              />
+            </div>
+
+            {msgResult && (
+              <div className={styles.msgResultBox}>
+                {msgResult.message}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={sendingMsg || !isConnected}
+              className={styles.submitBtn}
+              style={{ marginTop: 'auto' }}
+            >
+              <Send size={15} />
+              {sendingMsg ? 'Mengirim Pesan...' : 'Kirim Pesan WhatsApp'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Card 3: Interactive Bot Commands Cheat Sheet */}
+      <div className={styles.card} style={{ marginTop: '0.5rem' }}>
+        <h3 className={styles.cardHeaderTitle}>
+          <Terminal size={18} className={styles.accentIcon} />
+          Daftar Perintah WhatsApp Bot Interaktif
+        </h3>
+
+        <p className={styles.subtitle} style={{ marginBottom: '1rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+          Kirim pesan chat berikut langsung ke nomor bot WhatsApp yang terhubung untuk mengontrol pencatatan keuangan Anda:
+        </p>
+
+        <div className={styles.cheatGrid}>
+          <div className={styles.cheatCard}>
+            <span className={styles.cmdTag}>!overview</span>
+            <p className={styles.cheatDesc}>
+              Cek total aset dompet, saldo per bank/e-wallet, &amp; cashflow bulan ini.
+            </p>
+          </div>
+
+          <div className={styles.cheatCard}>
+            <span className={styles.cmdTag}>!hariini</span>
+            <p className={styles.cheatDesc}>
+              Cek total &amp; rincian pengeluaran harian kamu untuk hari ini.
+            </p>
+          </div>
+
+          <div className={styles.cheatCard}>
+            <span className={styles.cmdTag}>!cicilan</span>
+            <p className={styles.cheatDesc}>
+              Cek daftar cicilan aktif yang sedang berjalan, sisa bulan, &amp; tanggal jatuh tempo.
+            </p>
+          </div>
+
+          <div className={styles.cheatCard}>
+            <span className={styles.cmdTag}>!tambah pengeluaran 35000 | Makanan | Makan Siang</span>
+            <p className={styles.cheatDesc}>
+              Catat transaksi baru langsung via chat WhatsApp secara instan.
             </p>
           </div>
         </div>
