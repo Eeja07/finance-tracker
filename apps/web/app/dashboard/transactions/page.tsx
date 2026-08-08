@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Receipt, Plus, Search, Filter, ArrowUpRight, ArrowDownLeft, Trash2, Calendar } from 'lucide-react';
+import { Plus, Search, ArrowUpRight, ArrowDownLeft, Trash2, Calendar, Wallet, Tag } from 'lucide-react';
 import styles from './transactions.module.css';
 
 interface TransactionItem {
@@ -59,6 +59,7 @@ export default function TransactionsPage() {
 
   return (
     <div className={styles.container}>
+      {/* Header Banner */}
       <div className={styles.headerBanner}>
         <div>
           <h2>Daftar Transaksi</h2>
@@ -104,7 +105,7 @@ export default function TransactionsPage() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Desktop & Tablet Table View */}
       <div className={styles.tableCard}>
         <table className={styles.table}>
           <thead>
@@ -142,7 +143,7 @@ export default function TransactionsPage() {
                     {t.type === 'INCOME' ? '+' : '-'} Rp {t.amount.toLocaleString('id-ID')}
                   </td>
                   <td>
-                    <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn}>
+                    <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn} aria-label="Hapus transaksi">
                       <Trash2 size={16} />
                     </button>
                   </td>
@@ -151,6 +152,44 @@ export default function TransactionsPage() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card List View */}
+      <div className={styles.mobileList}>
+        {filtered.length === 0 ? (
+          <div className={styles.mobileEmptyState}>
+            Belum ada data transaksi. Tambah transaksi baru untuk mencatat pengeluaran/pemasukan kamu.
+          </div>
+        ) : (
+          filtered.map((t) => (
+            <div key={t.id} className={styles.mobileCard}>
+              <div className={styles.mobileCardHeader}>
+                <div className={styles.mobileTitleGroup}>
+                  <div className={t.type === 'INCOME' ? styles.incomeBadge : styles.expenseBadge}>
+                    {t.type === 'INCOME' ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
+                  </div>
+                  <span className={styles.mobileTitle}>{t.description}</span>
+                </div>
+                <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn} aria-label="Hapus transaksi">
+                  <Trash2 size={16} />
+                </button>
+              </div>
+
+              <div className={styles.mobileCardBody}>
+                <div className={styles.mobileTags}>
+                  <span className={styles.categoryChip}>{t.category}</span>
+                  <span className={styles.accountChip}>{t.account}</span>
+                </div>
+                <div className={styles.mobileMetaRight}>
+                  <span className={styles.mobileDate}>{t.date}</span>
+                  <span className={t.type === 'INCOME' ? styles.incomeText : styles.expenseText}>
+                    {t.type === 'INCOME' ? '+' : '-'} Rp {t.amount.toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Modal */}

@@ -2,6 +2,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .headerBanner {
@@ -33,10 +36,12 @@
   gap: 6px;
   background: var(--btn-bg);
   color: var(--btn-text);
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: var(--radius-sm);
   font-weight: 500;
   font-size: 0.82rem;
+  cursor: pointer;
+  border: none;
 }
 
 .filterBar {
@@ -44,6 +49,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .searchBox {
@@ -78,11 +85,14 @@
 }
 
 .filterBtn {
-  padding: 4px 10px;
+  padding: 6px 12px;
   font-size: 0.78rem;
   font-weight: 500;
   color: var(--text-muted);
   border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .activeFilter {
@@ -95,11 +105,17 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: block;
 }
 
 .table {
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -116,7 +132,7 @@
 }
 
 .table td {
-  padding: 10px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-subtle);
   font-size: 0.85rem;
   color: var(--text);
@@ -125,16 +141,18 @@
 .txDescGroup {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .incomeBadge, .expenseBadge {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .incomeBadge { background: var(--income-bg); color: var(--income-color); }
@@ -143,30 +161,125 @@
 .txDesc {
   font-weight: 500;
   color: var(--text);
+  word-break: break-word;
 }
 
 .categoryChip, .accountChip {
   background: var(--bg-subtle);
   border: 1px solid var(--border-subtle);
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 4px;
   font-size: 0.72rem;
   font-weight: 500;
   color: var(--text-muted);
+  display: inline-block;
 }
 
 .incomeText { color: var(--income-color); font-weight: 600; font-variant-numeric: tabular-nums; }
 .expenseText { color: var(--expense-color); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 .deleteBtn {
+  background: transparent;
+  border: none;
   color: var(--text-subtle);
   transition: color 0.15s ease;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .deleteBtn:hover {
   color: var(--expense-color);
 }
 
+/* Mobile List View */
+.mobileList {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mobileCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mobileCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.mobileTitleGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobileTitle {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobileCardBody {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+}
+
+.mobileTags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mobileMetaRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mobileDate {
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+.mobileEmptyState {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* Modal */
 .modalOverlay {
   position: fixed;
   top: 0;
@@ -178,6 +291,8 @@
   align-items: center;
   justify-content: center;
   z-index: 50;
+  padding: 16px;
+  box-sizing: border-box;
 }
 
 .modalContent {
@@ -186,8 +301,9 @@
   border-radius: var(--radius);
   padding: 20px;
   width: 440px;
-  max-width: 90vw;
+  max-width: 100%;
   box-shadow: var(--shadow);
+  box-sizing: border-box;
 }
 
 .modalContent h3 {
@@ -229,6 +345,7 @@
   font-weight: 500;
   font-size: 0.82rem;
   color: var(--text-muted);
+  cursor: pointer;
 }
 
 .activeExpense {
@@ -273,25 +390,28 @@
 }
 
 .cancelBtn {
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);
   border: 1px solid var(--border);
   color: var(--text);
   font-weight: 500;
   font-size: 0.82rem;
+  cursor: pointer;
 }
 
 .submitBtn {
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: var(--radius-sm);
   background: var(--btn-bg);
   color: var(--btn-text);
   font-weight: 500;
   font-size: 0.82rem;
+  border: none;
+  cursor: pointer;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   .headerBanner {
     flex-direction: column;
     align-items: flex-start;
@@ -306,6 +426,7 @@
   .filterBar {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
   }
 
   .searchBox {
@@ -313,14 +434,22 @@
   }
 
   .filterGroup {
-    overflow-x: auto;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .filterBtn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 4px;
   }
 
   .tableCard {
-    overflow-x: auto;
+    display: none;
   }
 
-  .table {
-    min-width: 550px;
+  .mobileList {
+    display: flex;
   }
 }
