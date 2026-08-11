@@ -13,6 +13,43 @@ export class WhatsappService {
     this.apiKey = process.env.WA_GATEWAY_API_KEY || 'eeja_wa_gateway_secret_key_2026';
   }
 
+  private normalizePhone(phone: string): string {
+    if (!phone) return '';
+    const cleaned = phone.split('@')[0].replace(/\D/g, '');
+    if (!cleaned) return '';
+    if (cleaned.startsWith('0')) return `62${cleaned.slice(1)}`;
+    return cleaned;
+  }
+
+  private parsePhoneList(raw?: string | null): string[] {
+    if (!raw) return [];
+    return Array.from(
+      new Set(
+        raw
+          .split(',')
+          .map((item) => this.normalizePhone(item))
+          .filter(Boolean),
+      ),
+    );
+  }
+
+  private async getNotificationPhones(userPhone?: string | null): Promise<string[]> {
+    const configuredPhones = this.parsePhoneList(
+      process.env.WA_NOTIFICATION_PHONES || process.env.WA_NOTIFICATION_PHONE,
+    );
+    if (configuredPhones.length > 0) {
+      return configuredPhones;
+    }
+
+    const defaultPhones = ['6281288092766', '6287700288297'];
+    const normalizedUserPhone = this.normalizePhone(userPhone || '');
+    if (normalizedUserPhone && !defaultPhones.includes(normalizedUserPhone)) {
+      return Array.from(new Set([normalizedUserPhone, ...defaultPhones]));
+    }
+
+    return defaultPhones;
+  }
+
   private normalizeStoredRupiahAmount(amount: number): number {
     if (Number.isInteger(amount)) return amount;
     const scaled = amount * 1000;
@@ -21,13 +58,14 @@ export class WhatsappService {
 
   async sendTextMessage(to: string, message: string): Promise<boolean> {
     try {
+      const normalizedTo = this.normalizePhone(to);
       const response = await fetch(`${this.gatewayUrl}/api/v1/messages/send`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-API-KEY': this.apiKey,
         },
-        body: JSON.stringify({ to, message }),
+        body: JSON.stringify({ to: normalizedTo || to, message }),
       });
       const data = (await response.json()) as { success?: boolean };
       return data.success === true;
@@ -70,7 +108,7 @@ export class WhatsappService {
 
   private async getPrimaryUserId(phone?: string): Promise<string> {
     if (phone) {
-      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const cleanPhone = this.normalizePhone(phone);
       const user = await this.prisma.user.findFirst({
         where: {
           OR: [
@@ -94,23 +132,26 @@ export class WhatsappService {
     const text = (body || '').trim();
     if (!text || !from) return;
 
-    // Only respond to explicit bot commands (starting with !)
-    if (!text.startsWith('!')) return;
+    // Must start with ! or /
+    if (!text.startsWith('!') && !text.startsWith('/')) return;
+
+    const lower = text.toLowerCase();
+    // Ignore Job Tracker commands explicitly
+    if (lower.startsWith('!loker') || lower.startsWith('/loker') || lower.startsWith('!email') || lower.startsWith('/email') || lower.startsWith('!job') || lower.startsWith('/job')) {
+      return;
+    }
 
     this.logger.log(`Processing WA Finance Bot Command from ${from} (${pushName}): ${text}`);
-    const lower = text.toLowerCase();
     const userId = await this.getPrimaryUserId(from);
     let reply = '';
 
-    if (lower.startsWith('!help') || lower.startsWith('!bantuan')) {
-      reply = this.getHelpMessage(pushName);
-    } else if (lower.startsWith('!hariini') || lower.startsWith('!pengeluaran')) {
-      reply = await this.getDailyExpenseMessage(userId);
-    } else if (lower.startsWith('!cicilan')) {
-      reply = await this.getActiveInstallmentsMessage(userId);
-    } else if (lower.startsWith('!overview') || lower.startsWith('!saldo')) {
+    if (lower.startsWith('!saldo') || lower.startsWith('/saldo') || lower.startsWith('!fin') || lower.startsWith('/fin')) {
       reply = await this.getOverviewMessage(userId);
-    } else if (lower.startsWith('!tambah')) {
+    } else if (lower.startsWith('!cicilan') || lower.startsWith('/cicilan')) {
+      reply = await this.getActiveInstallmentsMessage(userId);
+    } else if (lower.startsWith('!hariini') || lower.startsWith('/hariini') || lower.startsWith('!pengeluaran') || lower.startsWith('/pengeluaran')) {
+      reply = await this.getDailyExpenseMessage(userId);
+    } else if (lower.startsWith('!tambah') || lower.startsWith('/tambah')) {
       reply = await this.addTransactionFromWa(userId, text);
     }
 
@@ -343,7 +384,8 @@ ${type === TransactionType.EXPENSE ? '💸' : '💰'} *Tipe*: ${type === Transac
     let sentCount = 0;
     for (const payment of pendingPayments) {
       const user = payment.installment.user;
-      if (!user?.phone) continue;
+      const phones = await this.getNotificationPhones(user?.phone);
+      if (phones.length === 0) continue;
 
       const dueDateStr = new Date(payment.dueDate).toLocaleDateString('id-ID', {
         weekday: 'long',
@@ -365,8 +407,12 @@ Mohon siapkan dana di dompet kamu agar tidak terkena denda keterlambatan! 🙏
 
 🔗 _Bayar / Catat Pembayaran:_ https://finance.eeja.fun/installments`;
 
-      const success = await this.sendTextMessage(user.phone, message);
-      if (success) sentCount++;
+      const results = await Promise.allSettled(
+        phones.map((phone) => this.sendTextMessage(phone, message)),
+      );
+      sentCount += results.filter(
+        (result) => result.status === 'fulfilled' && result.value === true,
+      ).length;
     }
 
     return sentCount;
