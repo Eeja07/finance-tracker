@@ -286,7 +286,7 @@ export default function InstallmentsPage() {
         </div>
       </div>
 
-      <section className={styles.monthlyDueSection}>
+      {!loading && <section className={styles.monthlyDueSection}>
         <div className={styles.monthlyDueHeader}>
           <div>
             <span className={styles.summaryLabel}>Perlu Perhatian</span>
@@ -318,7 +318,7 @@ export default function InstallmentsPage() {
             })}
           </div>
         )}
-      </section>
+      </section>}
 
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
