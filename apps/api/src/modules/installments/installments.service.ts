@@ -22,6 +22,27 @@ export class InstallmentsService {
     throw new BadRequestException(`${label} harus bilangan bulat Rupiah (tanpa desimal)`);
   }
 
+  // Older records may contain a Rupiah amount such as 208.817 instead of 208817.
+  private normalizeStoredRupiahAmount(amount: number): number {
+    if (Number.isInteger(amount)) return amount;
+    const scaled = amount * 1000;
+    return amount > 0 && amount < 1000 && Number.isInteger(scaled) ? scaled : amount;
+  }
+
+  private normalizeInstallmentResponse<T extends { monthlyAmount: number; totalAmount: number; payments?: Array<{ amount: number }> }>(
+    installment: T,
+  ): T {
+    return {
+      ...installment,
+      monthlyAmount: this.normalizeStoredRupiahAmount(installment.monthlyAmount),
+      totalAmount: this.normalizeStoredRupiahAmount(installment.totalAmount),
+      payments: installment.payments?.map((payment) => ({
+        ...payment,
+        amount: this.normalizeStoredRupiahAmount(payment.amount),
+      })),
+    };
+  }
+
   private validateDueDateDay(day: number): number {
     if (!Number.isInteger(day) || day < 1 || day > 31) {
       throw new BadRequestException('Tanggal jatuh tempo harus di antara 1 sampai 31');
@@ -49,7 +70,7 @@ export class InstallmentsService {
   }
 
   async findAll(userId: string, status?: InstallmentStatus) {
-    return this.prisma.installment.findMany({
+    const installments = await this.prisma.installment.findMany({
       where: {
         userId,
         ...(status ? { status } : {}),
@@ -62,6 +83,7 @@ export class InstallmentsService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    return installments.map((installment) => this.normalizeInstallmentResponse(installment));
   }
 
   async findOne(userId: string, id: string) {
@@ -75,7 +97,7 @@ export class InstallmentsService {
       },
     });
     if (!installment) throw new NotFoundException('Cicilan tidak ditemukan');
-    return installment;
+    return this.normalizeInstallmentResponse(installment);
   }
 
   async create(
@@ -180,6 +202,8 @@ export class InstallmentsService {
       throw new NotFoundException('Akun dompet pembayaran tidak ditemukan');
     }
 
+    const paymentAmount = this.normalizeStoredRupiahAmount(payment.amount);
+
     // Find or create 'Cicilan' category
     let category = await this.prisma.category.findFirst({
       where: {
@@ -218,7 +242,7 @@ export class InstallmentsService {
             categoryId: category.id,
             installmentPaymentId: paymentId,
             type: TransactionType.EXPENSE,
-            amount: payment.amount,
+            amount: paymentAmount,
             date: payment.dueDate,
             description: `Pembayaran ${payment.installment.title} (Bulan Ke-${payment.tenorNumber}/${payment.installment.totalTenorMonths})`,
             recipientOrPayer: payment.installment.provider,
@@ -229,13 +253,14 @@ export class InstallmentsService {
       // 2. Update account balance
       await tx.account.update({
         where: { id: accountId },
-        data: { balance: { decrement: payment.amount } },
+        data: { balance: { decrement: paymentAmount } },
       });
 
       // 3. Update payment status
       const updatedPayment = await tx.installmentPayment.update({
         where: { id: paymentId },
         data: {
+          amount: paymentAmount,
           status: PaymentStatus.PAID,
           paidDate,
         },
@@ -257,7 +282,10 @@ export class InstallmentsService {
         },
       });
 
-      return updatedPayment;
+      return {
+        ...updatedPayment,
+        amount: this.normalizeStoredRupiahAmount(updatedPayment.amount),
+      };
     });
   }
 
@@ -402,7 +430,7 @@ export class InstallmentsService {
         },
       });
 
-      return updated;
+      return this.normalizeInstallmentResponse(updated);
     });
   }
 
@@ -415,7 +443,7 @@ export class InstallmentsService {
     const now = new Date();
     const threeDaysLater = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3, 23, 59, 59);
 
-    return this.prisma.installmentPayment.findMany({
+    const reminders = await this.prisma.installmentPayment.findMany({
       where: {
         status: PaymentStatus.PENDING,
         dueDate: { lte: threeDaysLater },
@@ -430,5 +458,10 @@ export class InstallmentsService {
       },
       orderBy: { dueDate: 'asc' },
     });
+    return reminders.map((payment) => ({
+      ...payment,
+      amount: this.normalizeStoredRupiahAmount(payment.amount),
+      installment: this.normalizeInstallmentResponse(payment.installment),
+    }));
   }
 }

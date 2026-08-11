@@ -13,6 +13,12 @@ export class WhatsappService {
     this.apiKey = process.env.WA_GATEWAY_API_KEY || 'eeja_wa_gateway_secret_key_2026';
   }
 
+  private normalizeStoredRupiahAmount(amount: number): number {
+    if (Number.isInteger(amount)) return amount;
+    const scaled = amount * 1000;
+    return amount > 0 && amount < 1000 && Number.isInteger(scaled) ? scaled : amount;
+  }
+
   async sendTextMessage(to: string, message: string): Promise<boolean> {
     try {
       const response = await fetch(`${this.gatewayUrl}/api/v1/messages/send`, {
@@ -190,7 +196,8 @@ _Atau:_ \`!tambah pemasukan 5000000 | Gaji | Bonus Proyek\`
     let msg = `💳 *DAFTAR CICILAN YANG DIJALANI*\n\n`;
 
     installments.forEach((inst, idx) => {
-      totalMonthly += inst.monthlyAmount;
+      const monthlyAmount = this.normalizeStoredRupiahAmount(inst.monthlyAmount);
+      totalMonthly += monthlyAmount;
       const nextPayment = inst.payments[0];
       const dueDateStr = nextPayment
         ? new Date(nextPayment.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
@@ -198,7 +205,7 @@ _Atau:_ \`!tambah pemasukan 5000000 | Gaji | Bonus Proyek\`
 
       msg += `${idx + 1}. *${inst.title}*\n`;
       msg += `   🏢 Penyedia: ${inst.provider}\n`;
-      msg += `   💰 Cicilan/Bln: *Rp ${inst.monthlyAmount.toLocaleString('id-ID')}*\n`;
+      msg += `   💰 Cicilan/Bln: *Rp ${monthlyAmount.toLocaleString('id-ID')}*\n`;
       msg += `   ⏳ Sisa Tenor: ${inst.remainingTenorMonths} dari ${inst.totalTenorMonths} bulan\n`;
       msg += `   📅 Jatuh Tempo Berikutnya: *${dueDateStr}*\n\n`;
     });
