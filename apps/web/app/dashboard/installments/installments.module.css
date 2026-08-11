@@ -237,7 +237,9 @@
   border-top: 1px solid var(--border-subtle);
   padding-top: 10px;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .payBtn {
@@ -256,6 +258,163 @@
 
 .payBtn:hover {
   opacity: 0.9;
+}
+
+.toggleTenorBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.toggleTenorBtn:hover {
+  background: var(--border-subtle);
+}
+
+.tenorSchedule {
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tenorScheduleHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.tenorList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tenorItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+}
+
+.tenorItemPaid {
+  border-left: 3px solid #22C55E;
+}
+
+.tenorItemPending {
+  border-left: 3px solid #F59E0B;
+}
+
+.tenorItemOverdue {
+  border-left: 3px solid #EF4444;
+}
+
+.tenorInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tenorMonth {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tenorMeta {
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+}
+
+.tenorRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badgePaid {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #16A34A;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.badgePending {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #D97706;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.badgeOverdue {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #DC2626;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.payMiniBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+
+.payMiniBtn:hover {
+  opacity: 0.9;
+}
+
+.payTargetInfo {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .modalOverlay {
@@ -306,7 +465,7 @@
   color: var(--text-muted);
 }
 
-.formGroup input {
+.formGroup input, .formGroup select {
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -316,7 +475,7 @@
   outline: none;
 }
 
-.formGroup input:focus {
+.formGroup input:focus, .formGroup select:focus {
   border-color: var(--border-focus);
 }
 
@@ -341,6 +500,7 @@
   color: var(--text);
   font-weight: 500;
   font-size: 0.82rem;
+  cursor: pointer;
 }
 
 .submitBtn {
@@ -350,6 +510,7 @@
   color: var(--btn-text);
   font-weight: 500;
   font-size: 0.82rem;
+  cursor: pointer;
 }
 
 @media (max-width: 1024px) {

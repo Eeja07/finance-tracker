@@ -80,6 +80,8 @@ export class TransactionsService {
       recipientOrPayer?: string;
       notes?: string;
       date?: string | Date;
+      receiptUrl?: string;
+      itemImageUrl?: string;
     },
   ) {
     if (data.amount <= 0) {
@@ -105,6 +107,8 @@ export class TransactionsService {
           recipientOrPayer: data.recipientOrPayer,
           notes: data.notes,
           date: txDate,
+          receiptUrl: data.receiptUrl,
+          itemImageUrl: data.itemImageUrl,
         },
         include: {
           account: true,

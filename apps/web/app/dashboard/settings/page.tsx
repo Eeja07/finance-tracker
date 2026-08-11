@@ -1,23 +1,66 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Settings, Sun, Moon, Heart, User, Shield, Check, Phone } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Sun, Moon, Heart, User, Check, Phone, Loader2 } from 'lucide-react';
 import { useTheme } from '../../../lib/theme-context';
 import { useAuth } from '../../../lib/auth-context';
+import { usersApi } from '@/lib/api';
 import styles from './settings.module.css';
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
-  const [fullName, setFullName] = useState(user?.fullName || 'Pengguna');
-  const [email, setEmail] = useState(user?.email || 'user@example.com');
-  const [phone, setPhone] = useState('081234567890');
+  const [fullName, setFullName] = useState(user?.fullName || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [currency, setCurrency] = useState(user?.currency || 'IDR');
+  const [submitting, setSubmitting] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        const prof = await usersApi.getProfile();
+        if (prof) {
+          if (prof.fullName) setFullName(prof.fullName);
+          if (prof.email) setEmail(prof.email);
+          if (prof.phone) setPhone(prof.phone);
+          if (prof.currency) setCurrency(prof.currency);
+          if (prof.themePreference && ['light', 'dark', 'pink'].includes(prof.themePreference)) {
+            setTheme(prof.themePreference as any);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load profile settings:', err);
+      }
+    }
+    loadProfile();
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setError('');
+    setSubmitting(true);
+    try {
+      await usersApi.updateProfile({
+        fullName,
+        phone,
+        currency,
+      });
+      await usersApi.updateTheme(theme);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Gagal menyimpan profil');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSelectTheme = (selectedTheme: 'light' | 'dark' | 'pink') => {
+    setTheme(selectedTheme);
+    usersApi.updateTheme(selectedTheme).catch(() => {});
   };
 
   return (
@@ -25,7 +68,7 @@ export default function SettingsPage() {
       <div className={styles.headerBanner}>
         <div>
           <h2>Pengaturan Akun & Tampilan</h2>
-          <p>Atur profil pengguna, pilihan tema (Light, Dark, Pink), dan integrasi WhatsApp.</p>
+          <p>Atur profil pengguna, pilihan tema (Light, Dark, Pink), dan mata uang bawaan.</p>
         </div>
       </div>
 
@@ -42,7 +85,7 @@ export default function SettingsPage() {
 
           <div className={styles.themeCardsGrid}>
             <div
-              onClick={() => setTheme('light')}
+              onClick={() => handleSelectTheme('light')}
               className={`${styles.themeOptionCard} ${theme === 'light' ? styles.activeOption : ''}`}
             >
               <div className={styles.themeIconBox} style={{ background: '#F8FAFC', color: '#0F172A' }}>
@@ -56,7 +99,7 @@ export default function SettingsPage() {
             </div>
 
             <div
-              onClick={() => setTheme('dark')}
+              onClick={() => handleSelectTheme('dark')}
               className={`${styles.themeOptionCard} ${theme === 'dark' ? styles.activeOption : ''}`}
             >
               <div className={styles.themeIconBox} style={{ background: '#0B0F19', color: '#6366F1' }}>
@@ -70,7 +113,7 @@ export default function SettingsPage() {
             </div>
 
             <div
-              onClick={() => setTheme('pink')}
+              onClick={() => handleSelectTheme('pink')}
               className={`${styles.themeOptionCard} ${theme === 'pink' ? styles.activePinkOption : ''}`}
             >
               <div className={styles.themeIconBox} style={{ background: '#FFF1F2', color: '#F43F5E' }}>
@@ -93,6 +136,8 @@ export default function SettingsPage() {
           </div>
 
           <form onSubmit={handleSave} className={styles.form}>
+            {error && <div style={{ color: '#EF4444', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{error}</div>}
+
             <div className={styles.formGroup}>
               <label>Nama Lengkap</label>
               <input
@@ -108,8 +153,8 @@ export default function SettingsPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+                disabled
+                style={{ opacity: 0.7, cursor: 'not-allowed' }}
               />
             </div>
 
@@ -119,23 +164,32 @@ export default function SettingsPage() {
                 <Phone size={18} />
                 <input
                   type="text"
+                  placeholder="081234567890"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  required
                 />
               </div>
             </div>
 
+            <div className={styles.formGroup}>
+              <label>Mata Uang Bawaan</label>
+              <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+                <option value="IDR">IDR (Rupiah Indonesia)</option>
+                <option value="USD">USD (US Dollar)</option>
+                <option value="SGD">SGD (Singapore Dollar)</option>
+              </select>
+            </div>
+
             <div className={styles.formActions}>
-              <button type="submit" className={styles.saveBtn}>
-                Simpan Perubahan
+              <button type="submit" className={styles.saveBtn} disabled={submitting}>
+                {submitting ? <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> : 'Simpan Perubahan'}
               </button>
             </div>
 
             {savedSuccess && (
               <div className={styles.successNotice}>
                 <Check size={16} />
-                <span>Pengaturan profil dan tema berhasil diperbarui!</span>
+                <span>Pengaturan profil dan tema berhasil tersimpan di DB!</span>
               </div>
             )}
           </form>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   QrCode,
   CheckCircle2,
@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   Terminal,
   Smartphone,
+  Radio,
+  Zap,
 } from 'lucide-react';
 import { whatsappApi, WhatsappStatus } from '../../../lib/api';
 import styles from './whatsapp.module.css';
@@ -28,12 +30,15 @@ export default function WhatsAppPage() {
   const [sendingMsg, setSendingMsg] = useState(false);
   const [msgResult, setMsgResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const fetchStatus = async () => {
+  const fetchStatus = async (): Promise<WhatsappStatus> => {
     try {
       const data = await whatsappApi.getStatus();
       setWaState(data);
+      return data;
     } catch {
-      setWaState({ status: 'disconnected', connectedUser: null, hasQr: false });
+      const fallback: WhatsappStatus = { status: 'disconnected', connectedUser: null, hasQr: false };
+      setWaState(fallback);
+      return fallback;
     } finally {
       setLoading(false);
     }
@@ -59,6 +64,31 @@ export default function WhatsAppPage() {
       alert('Gagal memutuskan koneksi WhatsApp: ' + (err.message || 'Error'));
     } finally {
       setResetting(false);
+    }
+  };
+
+  // Robust QR Code re-generation handler
+  const handleReconnect = async () => {
+    setResetting(true);
+    setWaState({ status: 'connecting', connectedUser: null, hasQr: false });
+    try {
+      await whatsappApi.resetSession();
+      
+      // Fast polling every 500ms to catch the newly generated QR Code immediately
+      let attempts = 0;
+      const pollInterval = setInterval(async () => {
+        attempts++;
+        const currentData = await fetchStatus();
+        if (currentData.qrDataUrl || currentData.hasQr || currentData.status === 'qr_ready' || currentData.status === 'connected' || attempts >= 20) {
+          clearInterval(pollInterval);
+          setResetting(false);
+        }
+      }, 500);
+    } catch (err: any) {
+      console.error('Reconnect failed:', err);
+      alert('Gagal meminta QR Code baru: ' + (err.message || 'Error koneksi'));
+      setResetting(false);
+      await fetchStatus();
     }
   };
 
@@ -95,7 +125,7 @@ export default function WhatsAppPage() {
       <div className={styles.headerBanner}>
         <div>
           <h2>Integrasi Bot WhatsApp</h2>
-          <p>Terhubung langsung dengan gateway WhatsApp private untuk pencatatan transaksi & reminder otomatis.</p>
+          <p>Terhubung langsung dengan gateway WhatsApp private untuk pencatatan transaksi &amp; reminder otomatis.</p>
         </div>
       </div>
 
@@ -108,10 +138,15 @@ export default function WhatsAppPage() {
           </h3>
 
           <div className={styles.qrContainer}>
-            {loading ? (
-              <div style={{ padding: '3rem 0', color: 'var(--text-muted)' }}>
+            {loading || resetting ? (
+              <div style={{ padding: '3rem 0', color: 'var(--text-muted)', textAlign: 'center' }}>
                 <RefreshCw size={28} className={styles.spinningIcon} style={{ margin: '0 auto 0.75rem' }} />
-                <p style={{ margin: 0, fontSize: '0.85rem' }}>Memeriksa status koneksi...</p>
+                <p style={{ margin: 0, fontWeight: 600, color: 'var(--text)', fontSize: '0.9rem' }}>
+                  {resetting ? 'Membuat QR Code Baru...' : 'Memeriksa status WhatsApp...'}
+                </p>
+                <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  {resetting ? 'Mohon tunggu 2-3 detik hingga scanner QR siap.' : 'Menghubungkan ke layanan gateway'}
+                </p>
               </div>
             ) : isConnected ? (
               <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -147,7 +182,7 @@ export default function WhatsAppPage() {
                     <img src={waState.qrDataUrl} alt="WhatsApp QR Code" className={styles.qrImage} />
                   </div>
                 ) : (
-                  <div style={{ padding: '2rem 0', color: 'var(--text-muted)' }}>
+                  <div style={{ padding: '2rem 0', color: 'var(--text-muted)', textAlign: 'center' }}>
                     <RefreshCw size={28} className={styles.spinningIcon} style={{ margin: '0 auto 0.75rem' }} />
                     <p style={{ margin: 0, fontSize: '0.85rem' }}>Menyiapkan gambar QR Code...</p>
                   </div>
@@ -158,12 +193,50 @@ export default function WhatsAppPage() {
                   <li>Pilih <strong>Perangkat Tertaut (Linked Devices)</strong>.</li>
                   <li>Klik <strong>Tautkan Perangkat</strong> &amp; Scan QR Code di atas.</li>
                 </ol>
+
+                <button
+                  onClick={handleReconnect}
+                  disabled={resetting}
+                  className={styles.refreshQrBtn}
+                >
+                  <RefreshCw size={14} />
+                  <span>Minta QR Code Baru</span>
+                </button>
               </div>
             ) : (
-              <div style={{ padding: '2rem 0', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <AlertCircle size={32} style={{ color: 'var(--text-subtle)', margin: '0 auto 0.75rem' }} />
-                <p style={{ fontWeight: 600, color: 'var(--text)', margin: 0, fontSize: '0.9rem' }}>Gateway Belum Siap / Disconnected</p>
-                <p style={{ fontSize: '0.82rem', marginTop: '0.35rem' }}>Menyiapkan koneksi WhatsApp Gateway baru...</p>
+              <div style={{ padding: '2rem 0', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                {waState.status === 'connecting' ? (
+                  <RefreshCw size={32} className={styles.spinningIcon} style={{ color: 'var(--accent)', margin: '0 auto 0.75rem' }} />
+                ) : (
+                  <Radio size={32} style={{ color: 'var(--accent)', margin: '0 auto 0.75rem' }} />
+                )}
+                <p style={{ fontWeight: 600, color: 'var(--text)', margin: 0, fontSize: '0.95rem' }}>
+                  {waState.status === 'connecting' ? 'Menyiapkan WhatsApp Gateway...' : 'Gateway Belum Siap / Disconnected'}
+                </p>
+                <p style={{ fontSize: '0.82rem', marginTop: '0.35rem', color: 'var(--text-muted)' }}>
+                  {waState.status === 'connecting'
+                    ? 'Sedang membuat QR Code baru, mohon tunggu sebentar...'
+                    : 'Klik tombol di bawah untuk membuat QR Code tautan perangkat WhatsApp baru secara langsung.'}
+                </p>
+
+                <button
+                  onClick={handleReconnect}
+                  disabled={resetting}
+                  className={styles.submitBtn}
+                  style={{ marginTop: '1.25rem', width: 'auto', padding: '10px 22px' }}
+                >
+                  {resetting ? (
+                    <>
+                      <RefreshCw size={15} className={styles.spinningIcon} />
+                      <span>Menyiapkan QR Code...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={15} />
+                      <span>Generasi QR Code Baru</span>
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </div>

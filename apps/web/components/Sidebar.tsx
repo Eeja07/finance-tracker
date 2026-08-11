@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Receipt,
@@ -16,6 +16,7 @@ import {
   Heart,
   TrendingUp,
   X,
+  LogOut,
 } from 'lucide-react';
 import { useTheme } from '../lib/theme-context';
 import { useAuth } from '../lib/auth-context';
@@ -28,13 +29,21 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   const displayName = user?.fullName || 'Pengguna';
   const initials = user?.fullName
     ? user.fullName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
     : 'FT';
+
+  const handleLogout = async () => {
+    if (confirm('Apakah Anda yakin ingin keluar dari akun?')) {
+      await logout();
+      router.push('/login');
+    }
+  };
 
   const navItems = [
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
@@ -127,6 +136,14 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               <div className={styles.userName}>{displayName}</div>
               <div className={styles.userRole}>PRO Member</div>
             </div>
+            <button
+              onClick={handleLogout}
+              className={styles.logoutBtn}
+              title="Keluar dari Akun (Logout)"
+              aria-label="Keluar dari Akun"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>

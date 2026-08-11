@@ -15,7 +15,7 @@ export class InstallmentsService {
       include: {
         account: { select: { id: true, name: true, color: true } },
         payments: {
-          orderBy: { dueDate: 'asc' },
+          orderBy: { tenorNumber: 'asc' },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -51,13 +51,13 @@ export class InstallmentsService {
       notes?: string;
     },
   ) {
-    const startDate = new Date(data.startDate);
+    const startDate = data.startDate ? new Date(data.startDate) : new Date();
 
     return this.prisma.$transaction(async (tx) => {
       const installment = await tx.installment.create({
         data: {
           userId,
-          accountId: data.accountId,
+          accountId: data.accountId || null,
           title: data.title,
           provider: data.provider,
           totalAmount: data.totalAmount,
@@ -68,11 +68,11 @@ export class InstallmentsService {
           dueDateDay: data.dueDateDay,
           interestRate: data.interestRate || 0,
           status: InstallmentStatus.ACTIVE,
-          notes: data.notes,
+          notes: data.notes || null,
         },
       });
 
-      // Generate payment schedule for all tenor months
+      // Generate payment schedule for all tenor months accurately
       const paymentsData: {
         installmentId: string;
         tenorNumber: number;
@@ -80,8 +80,20 @@ export class InstallmentsService {
         dueDate: Date;
         status: PaymentStatus;
       }[] = [];
+
+      const startYear = startDate.getFullYear();
+      const startMonth = startDate.getMonth(); // 0-indexed
+
       for (let i = 1; i <= data.totalTenorMonths; i++) {
-        const dueDate = new Date(startDate.getFullYear(), startDate.getMonth() + (i - 1), data.dueDateDay);
+        const totalMonthsFromStart = startMonth + (i - 1);
+        const targetYear = startYear + Math.floor(totalMonthsFromStart / 12);
+        const targetMonth = totalMonthsFromStart % 12;
+
+        const maxDaysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+        const actualDay = Math.min(Math.max(1, data.dueDateDay), maxDaysInMonth);
+
+        const dueDate = new Date(targetYear, targetMonth, actualDay, 12, 0, 0);
+
         paymentsData.push({
           installmentId: installment.id,
           tenorNumber: i,
@@ -95,7 +107,11 @@ export class InstallmentsService {
 
       return tx.installment.findUnique({
         where: { id: installment.id },
-        include: { payments: true },
+        include: {
+          payments: {
+            orderBy: { tenorNumber: 'asc' },
+          },
+        },
       });
     });
   }
@@ -123,9 +139,21 @@ export class InstallmentsService {
       throw new BadRequestException('Pilih dompet / akun bank pembayaran');
     }
 
+    const account = await this.prisma.account.findFirst({
+      where: { id: accountId, userId },
+    });
+    if (!account) {
+      throw new NotFoundException('Akun dompet pembayaran tidak ditemukan');
+    }
+
     // Find or create 'Cicilan' category
     let category = await this.prisma.category.findFirst({
-      where: { name: 'Cicilan & Hutang', userId },
+      where: {
+        OR: [
+          { userId, name: { contains: 'Cicilan', mode: 'insensitive' } },
+          { isSystemDefault: true, name: { contains: 'Cicilan', mode: 'insensitive' } },
+        ],
+      },
     });
 
     if (!category) {
@@ -143,20 +171,26 @@ export class InstallmentsService {
     const paidDate = data?.paidDate ? new Date(data.paidDate) : new Date();
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Create EXPENSE transaction
-      const transaction = await tx.transaction.create({
-        data: {
-          userId,
-          accountId,
-          categoryId: category.id,
-          installmentPaymentId: paymentId,
-          type: TransactionType.EXPENSE,
-          amount: payment.amount,
-          date: paidDate,
-          description: `Pembayaran ${payment.installment.title} (Bulan Ke-${payment.tenorNumber}/${payment.installment.totalTenorMonths})`,
-          recipientOrPayer: payment.installment.provider,
-        },
+      // 1. Create or update EXPENSE transaction
+      const existingTx = await tx.transaction.findUnique({
+        where: { installmentPaymentId: paymentId },
       });
+
+      if (!existingTx) {
+        await tx.transaction.create({
+          data: {
+            userId,
+            accountId,
+            categoryId: category.id,
+            installmentPaymentId: paymentId,
+            type: TransactionType.EXPENSE,
+            amount: payment.amount,
+            date: paidDate,
+            description: `Pembayaran ${payment.installment.title} (Bulan Ke-${payment.tenorNumber}/${payment.installment.totalTenorMonths})`,
+            recipientOrPayer: payment.installment.provider,
+          },
+        });
+      }
 
       // 2. Update account balance
       await tx.account.update({
@@ -173,15 +207,19 @@ export class InstallmentsService {
         },
       });
 
-      // 4. Update remaining tenor months on installment
-      const remaining = payment.installment.remainingTenorMonths - 1;
-      const isCompleted = remaining <= 0;
+      // 4. Update remaining tenor months on installment dynamically
+      const remainingPending = await tx.installmentPayment.count({
+        where: {
+          installmentId: payment.installmentId,
+          status: PaymentStatus.PENDING,
+        },
+      });
 
       await tx.installment.update({
         where: { id: payment.installmentId },
         data: {
-          remainingTenorMonths: Math.max(0, remaining),
-          status: isCompleted ? InstallmentStatus.COMPLETED : InstallmentStatus.ACTIVE,
+          remainingTenorMonths: remainingPending,
+          status: remainingPending === 0 ? InstallmentStatus.COMPLETED : InstallmentStatus.ACTIVE,
         },
       });
 

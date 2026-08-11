@@ -126,6 +126,8 @@ model Transaction {
   recipientOrPayer     String?         @map("recipient_or_payer") @db.VarChar(255)
   notes                String?         @db.Text
   attachmentUrl        String?         @map("attachment_url") @db.Text
+  receiptUrl           String?         @map("receipt_url") @db.Text
+  itemImageUrl         String?         @map("item_image_url") @db.Text
   createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 

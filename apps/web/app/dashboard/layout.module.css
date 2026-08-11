@@ -58,50 +58,25 @@
   font-weight: 400;
 }
 
-.navActions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.waStatusBadge {
+.navLogoutBtn {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--income-bg);
-  border: 1px solid var(--income-color);
-  color: var(--income-color);
-  padding: 3px 8px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.waDisconnectedBadge {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-subtle);
   border: 1px solid var(--border);
+  background: var(--bg-subtle);
   color: var(--text-muted);
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.onlineDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--income-color);
-}
-
-.offlineDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-subtle);
+.navLogoutBtn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .contentBody {
@@ -138,13 +113,5 @@
   .welcomeText {
     font-size: 0.85rem;
     margin-right: 0;
-  }
-
-  .waStatusBadge span:last-child {
-    display: none;
-  }
-
-  .waStatusBadge {
-    padding: 4px;
   }
 }

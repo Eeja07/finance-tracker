@@ -1,53 +1,92 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Wallet, Building2, CreditCard, Plus, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wallet, Building2, CreditCard, Plus, Loader2, Trash2 } from 'lucide-react';
+import { accountsApi, Account } from '@/lib/api';
 import styles from './accounts.module.css';
 
 export default function AccountsPage() {
-  const [accounts, setAccounts] = useState([
-    { id: '1', name: 'Bank BCA Utama', type: 'BANK', accountNumber: '8830912831', balance: 12500000, color: '#2563EB', icon: Building2 },
-    { id: '2', name: 'GoPay / OVO', type: 'EWALLET', accountNumber: '081234567890', balance: 850000, color: '#00AED6', icon: Wallet },
-    { id: '3', name: 'Uang Tunai Dompet', type: 'CASH', accountNumber: '-', balance: 450000, color: '#10B981', icon: CreditCard },
-  ]);
-
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newType, setNewType] = useState('BANK');
+  const [newType, setNewType] = useState<'BANK' | 'EWALLET' | 'CASH' | 'CREDIT_CARD'>('BANK');
   const [newBalance, setNewBalance] = useState('');
   const [newAccountNum, setNewAccountNum] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const loadAccounts = async () => {
+    try {
+      setLoading(true);
+      const data = await accountsApi.list();
+      setAccounts(data);
+    } catch (err: any) {
+      console.error('Failed to load accounts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAccounts();
+  }, []);
 
   const totalBalance = accounts.reduce((acc, a) => acc + a.balance, 0);
 
-  const handleAddAccount = (e: React.FormEvent) => {
+  const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newBalance) return;
+    setError('');
+    setSubmitting(true);
 
-    const created = {
-      id: Date.now().toString(),
-      name: newName,
-      type: newType,
-      accountNumber: newAccountNum || '-',
-      balance: parseFloat(newBalance),
-      color: newType === 'BANK' ? '#2563EB' : newType === 'EWALLET' ? '#00AED6' : '#10B981',
-      icon: newType === 'BANK' ? Building2 : Wallet,
-    };
+    try {
+      await accountsApi.create({
+        name: newName,
+        type: newType,
+        balance: parseFloat(newBalance),
+        accountNumber: newAccountNum || undefined,
+        color: 'var(--accent)',
+      });
+      setIsModalOpen(false);
+      setNewName('');
+      setNewBalance('');
+      setNewAccountNum('');
+      await loadAccounts();
+    } catch (err: any) {
+      setError(err.message || 'Gagal membuat akun');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-    setAccounts([...accounts, created]);
-    setIsModalOpen(false);
-    setNewName('');
-    setNewBalance('');
-    setNewAccountNum('');
+  const handleArchive = async (id: string) => {
+    if (!confirm('Apakah kamu yakin ingin menghapus/mengarsipkan dompet ini?')) return;
+    try {
+      await accountsApi.archive(id);
+      await loadAccounts();
+    } catch (err: any) {
+      alert(err.message || 'Gagal menghapus dompet');
+    }
+  };
+
+  const getAccountIcon = (type: string) => {
+    switch (type) {
+      case 'BANK': return Building2;
+      case 'EWALLET': return Wallet;
+      case 'CASH': return CreditCard;
+      default: return Wallet;
+    }
   };
 
   return (
     <div className={styles.container}>
       <div className={styles.headerBanner}>
         <div>
-          <h2>Dompet & Akun Bank</h2>
+          <h2>Dompet &amp; Akun Bank</h2>
           <p>Kelola rekening bank, e-wallet, dan uang tunai kamu di satu tempat.</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className={styles.addBtn}>
+        <button onClick={() => { setError(''); setIsModalOpen(true); }} className={styles.addBtn}>
           <Plus size={18} />
           <span>Tambah Dompet</span>
         </button>
@@ -58,39 +97,60 @@ export default function AccountsPage() {
         <strong className={styles.totalValue}>Rp {totalBalance.toLocaleString('id-ID')}</strong>
       </div>
 
-      <div className={styles.grid}>
-        {accounts.map((acc) => {
-          const Icon = acc.icon;
-          return (
-            <div key={acc.id} className={styles.card}>
-              <div className={styles.cardHeader}>
-                <div className={styles.iconCircle} style={{ background: `${acc.color}20`, color: acc.color }}>
-                  <Icon size={22} />
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
+          <Loader2 size={24} style={{ animation: 'spin 0.8s linear infinite', color: 'var(--accent)' }} />
+        </div>
+      ) : accounts.length === 0 ? (
+        <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+          Belum ada akun atau dompet yang terdaftar. Klik <strong>"Tambah Dompet"</strong> untuk mendaftarkan akun bank / e-wallet kamu.
+        </div>
+      ) : (
+        <div className={styles.grid}>
+          {accounts.map((acc) => {
+            const Icon = getAccountIcon(acc.type);
+            return (
+              <div key={acc.id} className={styles.card}>
+                <div className={styles.cardHeader}>
+                  <div className={styles.iconCircle}>
+                    <Icon size={22} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className={styles.typeBadge}>{acc.type}</span>
+                    <button
+                      onClick={() => handleArchive(acc.id)}
+                      className={styles.deleteBtn}
+                      title="Hapus / Arsipkan"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-                <span className={styles.typeBadge}>{acc.type}</span>
-              </div>
 
-              <div className={styles.cardBody}>
-                <h3 className={styles.accountName}>{acc.name}</h3>
-                <span className={styles.accountNo}>No: {acc.accountNumber}</span>
-                <div className={styles.balanceValue}>
-                  Rp {acc.balance.toLocaleString('id-ID')}
+                <div className={styles.cardBody}>
+                  <h3 className={styles.accountName}>{acc.name}</h3>
+                  <span className={styles.accountNo}>No: {acc.accountNumber || '-'}</span>
+                  <div className={styles.balanceValue}>
+                    Rp {acc.balance.toLocaleString('id-ID')}
+                  </div>
+                </div>
+
+                <div className={styles.cardFooter}>
+                  <span>Tersimpan di Database</span>
                 </div>
               </div>
-
-              <div className={styles.cardFooter}>
-                <span>Terverifikasi Real-time</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {isModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
             <h3>Tambah Dompet / Bank Baru</h3>
             <form onSubmit={handleAddAccount} className={styles.form}>
+              {error && <div className={styles.errorAlert}>{error}</div>}
+
               <div className={styles.formGroup}>
                 <label>Nama Akun / Bank</label>
                 <input
@@ -105,10 +165,11 @@ export default function AccountsPage() {
               <div className={styles.formGrid}>
                 <div className={styles.formGroup}>
                   <label>Tipe Akun</label>
-                  <select value={newType} onChange={(e) => setNewType(e.target.value)}>
+                  <select value={newType} onChange={(e) => setNewType(e.target.value as any)}>
                     <option value="BANK">BANK</option>
                     <option value="EWALLET">E-WALLET</option>
                     <option value="CASH">UANG TUNAI</option>
+                    <option value="CREDIT_CARD">KARTU KREDIT</option>
                   </select>
                 </div>
 
@@ -138,8 +199,8 @@ export default function AccountsPage() {
                 <button type="button" onClick={() => setIsModalOpen(false)} className={styles.cancelBtn}>
                   Batal
                 </button>
-                <button type="submit" className={styles.submitBtn}>
-                  Simpan Dompet
+                <button type="submit" className={styles.submitBtn} disabled={submitting}>
+                  {submitting ? <Loader2 size={16} className={styles.spinningIcon} /> : 'Simpan Dompet'}
                 </button>
               </div>
             </form>

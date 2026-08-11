@@ -1,31 +1,24 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Menu } from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu, LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '../../components/Sidebar';
 import { useAuth } from '../../lib/auth-context';
-import { whatsappApi } from '../../lib/api';
 import styles from './layout.module.css';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [waConnected, setWaConnected] = useState(false);
   const displayName = user?.fullName || 'Pengguna';
 
-  useEffect(() => {
-    const checkWa = async () => {
-      try {
-        const status = await whatsappApi.getStatus();
-        setWaConnected(status.status === 'connected');
-      } catch {
-        setWaConnected(false);
-      }
-    };
-    checkWa();
-    const timer = setInterval(checkWa, 10000);
-    return () => clearInterval(timer);
-  }, []);
+  const handleLogout = async () => {
+    if (confirm('Apakah Anda yakin ingin keluar dari akun?')) {
+      await logout();
+      router.push('/login');
+    }
+  };
 
   return (
     <div className={styles.layoutContainer}>
@@ -47,12 +40,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </span>
             </div>
           </div>
-          <div className={styles.navActions}>
-            <div className={waConnected ? styles.waStatusBadge : styles.waDisconnectedBadge}>
-              <span className={waConnected ? styles.onlineDot : styles.offlineDot}></span>
-              <span>{waConnected ? 'WA Bot Terhubung' : 'WA Bot Terputus'}</span>
-            </div>
-          </div>
+
+          <button
+            onClick={handleLogout}
+            className={styles.navLogoutBtn}
+            title="Keluar dari Akun"
+            aria-label="Keluar dari Akun"
+          >
+            <LogOut size={15} />
+            <span>Keluar</span>
+          </button>
         </div>
         <div className={styles.contentBody}>{children}</div>
       </main>

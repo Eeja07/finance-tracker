@@ -43,7 +43,7 @@ services:
     build:
       context: /opt/apps/finance-tracker
       dockerfile: apps/web/Dockerfile
-    container_name: finance-tracker-web
+    container_name: finance-tracker-web-app
     restart: unless-stopped
     environment:
       NODE_ENV: production

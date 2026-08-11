@@ -21,6 +21,8 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_API_URL=https://money.eeja.fun/api
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # Build Next.js application
 RUN pnpm --filter web build

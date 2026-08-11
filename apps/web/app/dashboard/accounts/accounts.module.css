@@ -86,12 +86,30 @@
 }
 
 .iconCircle {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.deleteBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.deleteBtn:hover {
+  color: var(--expense-color);
 }
 
 .typeBadge {

@@ -1,114 +1,166 @@
 'use client';
 
-import React, { useState } from 'react';
-import { CreditCard, Plus, CheckCircle, AlertTriangle, Calendar, Building2, Bell } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CreditCard, Plus, CheckCircle, Calendar, Loader2, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
+import { installmentsApi, accountsApi, Installment, InstallmentPayment, Account } from '@/lib/api';
 import styles from './installments.module.css';
 
-interface Installment {
-  id: string;
-  title: string;
-  provider: string;
-  totalAmount: number;
-  monthlyAmount: number;
-  totalTenorMonths: number;
-  remainingTenorMonths: number;
-  dueDateDay: number;
-  status: 'ACTIVE' | 'COMPLETED';
-}
-
 export default function InstallmentsPage() {
-  const [installments, setInstallments] = useState<Installment[]>([
-    {
-      id: '1',
-      title: 'Cicilan Laptop Gaming ASUS ROG',
-      provider: 'BCA Credit Card',
-      totalAmount: 18000000,
-      monthlyAmount: 1500000,
-      totalTenorMonths: 12,
-      remainingTenorMonths: 5,
-      dueDateDay: 10,
-      status: 'ACTIVE',
-    },
-    {
-      id: '2',
-      title: 'Cicilan KPR Rumah Cluster Rose',
-      provider: 'Bank Mandiri',
-      totalAmount: 360000000,
-      monthlyAmount: 3200000,
-      totalTenorMonths: 120,
-      remainingTenorMonths: 96,
-      dueDateDay: 15,
-      status: 'ACTIVE',
-    },
-    {
-      id: '3',
-      title: 'Cicilan Smartphone iPhone 15 Pro',
-      provider: 'Shopee PayLater',
-      totalAmount: 12000000,
-      monthlyAmount: 2000000,
-      totalTenorMonths: 6,
-      remainingTenorMonths: 0,
-      dueDateDay: 25,
-      status: 'COMPLETED',
-    },
-  ]);
+  const [installments, setInstallments] = useState<Installment[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  // Form states for creating installment
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newProvider, setNewProvider] = useState('');
   const [newTotalAmount, setNewTotalAmount] = useState('');
   const [newMonthlyAmount, setNewMonthlyAmount] = useState('');
   const [newTenor, setNewTenor] = useState('');
-  const [newDueDateDay, setNewDueDateDay] = useState('');
+  const [newDueDateDay, setNewDueDateDay] = useState('10');
+  
+  // Start Month & Year selector (Format YYYY-MM)
+  const nowStr = new Date().toISOString().slice(0, 7); // e.g. "2026-08"
+  const [startMonthYear, setStartMonthYear] = useState(nowStr);
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+
+  // Expanded Tenors state per installment ID
+  const [expandedTenors, setExpandedTenors] = useState<Record<string, boolean>>({});
+
+  // Pay Modal states
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [payPaymentId, setPayPaymentId] = useState('');
+  const [payAccountId, setPayAccountId] = useState('');
+  const [payPaymentInfo, setPayPaymentInfo] = useState<{
+    installmentTitle: string;
+    tenorNumber: number;
+    totalTenor: number;
+    amount: number;
+    monthYear: string;
+  } | null>(null);
+  const [paySubmitting, setPaySubmitting] = useState(false);
+
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [instRes, accRes] = await Promise.all([
+        installmentsApi.list(),
+        accountsApi.list(),
+      ]);
+      setInstallments(instRes || []);
+      setAccounts(accRes || []);
+      if (accRes && accRes.length > 0 && accRes[0]) {
+        setSelectedAccountId(accRes[0].id);
+        setPayAccountId(accRes[0].id);
+      }
+    } catch (err) {
+      console.error('Failed to load installment data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const activeInstallments = installments.filter((x) => x.status === 'ACTIVE');
   const totalMonthlyCommitment = activeInstallments.reduce((acc, x) => acc + x.monthlyAmount, 0);
 
-  const handlePayInstallment = (id: string) => {
-    setInstallments((prev) =>
-      prev.map((inst) => {
-        if (inst.id === id && inst.remainingTenorMonths > 0) {
-          const nextRemaining = inst.remainingTenorMonths - 1;
-          return {
-            ...inst,
-            remainingTenorMonths: nextRemaining,
-            status: nextRemaining === 0 ? 'COMPLETED' : 'ACTIVE',
-          };
-        }
-        return inst;
-      }),
-    );
-    alert('✅ Pembayaran cicilan bulan ini berhasil dicatat! Saldo dompet telah dipotong.');
+  const openPayModalForPayment = (inst: Installment, p: InstallmentPayment) => {
+    setPayPaymentId(p.id);
+    const dateObj = new Date(p.dueDate);
+    const monthYear = dateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+
+    setPayPaymentInfo({
+      installmentTitle: inst.title,
+      tenorNumber: p.tenorNumber,
+      totalTenor: inst.totalTenorMonths,
+      amount: p.amount,
+      monthYear,
+    });
+
+    if (inst.account?.id) setPayAccountId(inst.account.id);
+    else if (accounts.length > 0 && accounts[0]) setPayAccountId(accounts[0].id);
+
+    setPayModalOpen(true);
   };
 
-  const handleAddInstallment = (e: React.FormEvent) => {
+  const openPayModalDefault = (inst: Installment) => {
+    const pendingPayment = inst.payments?.find((p) => p.status === 'PENDING');
+    if (!pendingPayment) {
+      alert('Semua tagihan untuk cicilan ini sudah lunas.');
+      return;
+    }
+    openPayModalForPayment(inst, pendingPayment);
+  };
+
+  const handlePayInstallment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payPaymentId || !payAccountId) return;
+    setPaySubmitting(true);
+    try {
+      await installmentsApi.pay(payPaymentId, { accountId: payAccountId });
+      alert('✅ Pembayaran cicilan berhasil dicatat! Saldo dompet telah dipotong dan pengeluaran dicatat.');
+      setPayModalOpen(false);
+      await loadData();
+    } catch (err: any) {
+      alert(err.message || 'Gagal membayar cicilan');
+    } finally {
+      setPaySubmitting(false);
+    }
+  };
+
+  const handleAddInstallment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle || !newMonthlyAmount) return;
+
+    setError('');
+    setSubmitting(true);
 
     const tenor = parseInt(newTenor) || 12;
     const monthly = parseFloat(newMonthlyAmount);
     const total = parseFloat(newTotalAmount) || monthly * tenor;
+    const dueDay = parseInt(newDueDateDay) || 10;
 
-    const created: Installment = {
-      id: Date.now().toString(),
-      title: newTitle,
-      provider: newProvider || 'Bank / Provider',
-      totalAmount: total,
-      monthlyAmount: monthly,
-      totalTenorMonths: tenor,
-      remainingTenorMonths: tenor,
-      dueDateDay: parseInt(newDueDateDay) || 10,
-      status: 'ACTIVE',
-    };
+    // Construct start date based on startMonthYear input
+    let startDateObj = new Date();
+    if (startMonthYear) {
+      const parts = startMonthYear.split('-');
+      const yr = parseInt(parts[0] || '', 10) || new Date().getFullYear();
+      const mo = parseInt(parts[1] || '', 10) || (new Date().getMonth() + 1);
+      startDateObj = new Date(yr, mo - 1, dueDay, 12, 0, 0);
+    }
 
-    setInstallments([created, ...installments]);
-    setIsModalOpen(false);
-    setNewTitle('');
-    setNewProvider('');
-    setNewTotalAmount('');
-    setNewMonthlyAmount('');
-    setNewTenor('');
-    setNewDueDateDay('');
+    try {
+      await installmentsApi.create({
+        title: newTitle,
+        provider: newProvider || 'Bank / Provider',
+        totalAmount: total,
+        monthlyAmount: monthly,
+        totalTenorMonths: tenor,
+        startDate: startDateObj.toISOString(),
+        dueDateDay: dueDay,
+        accountId: selectedAccountId || undefined,
+      });
+
+      setIsModalOpen(false);
+      setNewTitle('');
+      setNewProvider('');
+      setNewTotalAmount('');
+      setNewMonthlyAmount('');
+      setNewTenor('');
+      setNewDueDateDay('10');
+      setStartMonthYear(nowStr);
+      await loadData();
+    } catch (err: any) {
+      setError(err.message || 'Gagal menambah cicilan');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -117,9 +169,9 @@ export default function InstallmentsPage() {
       <div className={styles.headerBanner}>
         <div>
           <h2>Cicilan Yang Dijalani</h2>
-          <p>Pantau sisa tenor, tagihan bulanan, dan notifikasi pengingat otomatis via WhatsApp Bot.</p>
+          <p>Pantau sisa tenor bulanan, jadwal yang sudah & belum dibayar, serta pengingat otomatis via WhatsApp Bot.</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className={styles.addBtn}>
+        <button onClick={() => { setError(''); setIsModalOpen(true); }} className={styles.addBtn}>
           <Plus size={18} />
           <span>Tambah Cicilan</span>
         </button>
@@ -138,97 +190,231 @@ export default function InstallmentsPage() {
             Rp {totalMonthlyCommitment.toLocaleString('id-ID')} / bln
           </span>
         </div>
-        <div className={styles.summaryDivider}></div>
-        <div className={styles.summaryItem}>
-          <span className={styles.summaryLabel}>Notifikasi WhatsApp Bot</span>
-          <span className={styles.waBadge}>
-            <Bell size={14} />
-            <span>Aktif H-3 & H-1</span>
-          </span>
-        </div>
       </div>
 
-      {/* Installments List Grid */}
-      <div className={styles.grid}>
-        {installments.map((inst) => {
-          const completedTenor = inst.totalTenorMonths - inst.remainingTenorMonths;
-          const progressPct = Math.round((completedTenor / inst.totalTenorMonths) * 100);
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
+          <Loader2 size={24} style={{ animation: 'spin 0.8s linear infinite', color: 'var(--primary)' }} />
+        </div>
+      ) : installments.length === 0 ? (
+        <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+          Belum ada cicilan aktif. Klik <strong>"Tambah Cicilan"</strong> untuk mendaftarkan barang atau pinjaman kamu.
+        </div>
+      ) : (
+        /* Installments List Grid */
+        <div className={styles.grid}>
+          {installments.map((inst) => {
+            const completedTenor = inst.totalTenorMonths - inst.remainingTenorMonths;
+            const progressPct = Math.round((completedTenor / inst.totalTenorMonths) * 100);
+            const isExpanded = !!expandedTenors[inst.id];
 
-          return (
-            <div
-              key={inst.id}
-              className={`${styles.card} ${inst.status === 'COMPLETED' ? styles.cardCompleted : ''}`}
-            >
-              <div className={styles.cardHeader}>
-                <div className={styles.titleGroup}>
-                  <div className={styles.cardIcon}>
-                    <CreditCard size={20} />
-                  </div>
-                  <div>
-                    <h3 className={styles.cardTitle}>{inst.title}</h3>
-                    <span className={styles.cardProvider}>{inst.provider}</span>
-                  </div>
-                </div>
-                {inst.status === 'ACTIVE' ? (
-                  <span className={styles.activeTag}>
-                    <Calendar size={12} />
-                    Jatuh Tempo Tgl {inst.dueDateDay}
-                  </span>
-                ) : (
-                  <span className={styles.completedTag}>
-                    <CheckCircle size={12} />
-                    Lunas
-                  </span>
-                )}
-              </div>
-
-              <div className={styles.cardBody}>
-                <div className={styles.priceRow}>
-                  <div>
-                    <span className={styles.priceLabel}>Tagihan per Bulan</span>
-                    <div className={styles.priceValue}>
-                      Rp {inst.monthlyAmount.toLocaleString('id-ID')}
+            return (
+              <div
+                key={inst.id}
+                className={`${styles.card} ${inst.status === 'COMPLETED' ? styles.cardCompleted : ''}`}
+              >
+                <div className={styles.cardHeader}>
+                  <div className={styles.titleGroup}>
+                    <div className={styles.cardIcon}>
+                      <CreditCard size={20} />
+                    </div>
+                    <div>
+                      <h3 className={styles.cardTitle}>{inst.title}</h3>
+                      <span className={styles.cardProvider}>{inst.provider}</span>
                     </div>
                   </div>
-                  <div className={styles.rightAlign}>
-                    <span className={styles.priceLabel}>Total Pinjaman/Harga</span>
-                    <div className={styles.totalValue}>
-                      Rp {inst.totalAmount.toLocaleString('id-ID')}
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.progressSection}>
-                  <div className={styles.progressMeta}>
-                    <span>
-                      Tenor {completedTenor} dari {inst.totalTenorMonths} bulan
+                  {inst.status === 'ACTIVE' ? (
+                    <span className={styles.activeTag}>
+                      <Calendar size={12} />
+                      Jatuh Tempo Tgl {inst.dueDateDay}
                     </span>
-                    <span>{progressPct}% Terbayar</span>
-                  </div>
-                  <div className={styles.progressBarBg}>
-                    <div
-                      className={styles.progressBarFill}
-                      style={{ width: `${progressPct}%` }}
-                    ></div>
-                  </div>
+                  ) : (
+                    <span className={styles.completedTag}>
+                      <CheckCircle size={12} />
+                      Lunas
+                    </span>
+                  )}
                 </div>
-              </div>
 
-              {inst.status === 'ACTIVE' && (
+                <div className={styles.cardBody}>
+                  <div className={styles.priceRow}>
+                    <div>
+                      <span className={styles.priceLabel}>Tagihan per Bulan</span>
+                      <div className={styles.priceValue}>
+                        Rp {inst.monthlyAmount.toLocaleString('id-ID')}
+                      </div>
+                    </div>
+                    <div className={styles.rightAlign}>
+                      <span className={styles.priceLabel}>Total Pinjaman/Harga</span>
+                      <div className={styles.totalValue}>
+                        Rp {inst.totalAmount.toLocaleString('id-ID')}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={styles.progressSection}>
+                    <div className={styles.progressMeta}>
+                      <span>
+                        Sisa <strong>{inst.remainingTenorMonths} Bulan</strong> (Terbayar {completedTenor}/{inst.totalTenorMonths})
+                      </span>
+                      <span>{progressPct}% Terbayar</span>
+                    </div>
+                    <div className={styles.progressBarBg}>
+                      <div
+                        className={styles.progressBarFill}
+                        style={{ width: `${progressPct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Tenor Monthly Schedule Breakdown */}
+                  {isExpanded && (
+                    <div className={styles.tenorSchedule}>
+                      <div className={styles.tenorScheduleHeader}>
+                        <span>Jadwal Masa Tenor ({inst.totalTenorMonths} Bulan)</span>
+                        <span>{completedTenor} Lunas • {inst.remainingTenorMonths} Belum</span>
+                      </div>
+                      <div className={styles.tenorList}>
+                        {inst.payments?.map((p) => {
+                          const dueDateObj = new Date(p.dueDate);
+                          const monthYearStr = dueDateObj.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+                          const isOverdue = dueDateObj < new Date() && p.status === 'PENDING';
+
+                          return (
+                            <div
+                              key={p.id}
+                              className={`${styles.tenorItem} ${
+                                p.status === 'PAID'
+                                  ? styles.tenorItemPaid
+                                  : isOverdue
+                                  ? styles.tenorItemOverdue
+                                  : styles.tenorItemPending
+                              }`}
+                            >
+                              <div className={styles.tenorInfo}>
+                                <span className={styles.tenorMonth}>
+                                  Tenor {p.tenorNumber}: {monthYearStr}
+                                </span>
+                                <span className={styles.tenorMeta}>
+                                  Jatuh Tempo: {dueDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                  {p.paidDate && ` • Dibayar: ${new Date(p.paidDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+                                </span>
+                              </div>
+                              <div className={styles.tenorRight}>
+                                {p.status === 'PAID' ? (
+                                  <span className={styles.badgePaid}>
+                                    <CheckCircle size={12} /> Lunas
+                                  </span>
+                                ) : isOverdue ? (
+                                  <span className={styles.badgeOverdue}>
+                                    <AlertCircle size={12} /> Terlambat
+                                  </span>
+                                ) : (
+                                  <span className={styles.badgePending}>
+                                    <Clock size={12} /> Belum Dibayar
+                                  </span>
+                                )}
+
+                                {p.status !== 'PAID' && (
+                                  <button
+                                    onClick={() => openPayModalForPayment(inst, p)}
+                                    className={styles.payMiniBtn}
+                                  >
+                                    Bayar
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className={styles.cardFooter}>
                   <button
-                    onClick={() => handlePayInstallment(inst.id)}
-                    className={styles.payBtn}
+                    type="button"
+                    onClick={() =>
+                      setExpandedTenors((prev) => ({
+                        ...prev,
+                        [inst.id]: !prev[inst.id],
+                      }))
+                    }
+                    className={styles.toggleTenorBtn}
                   >
-                    <CheckCircle size={16} />
-                    <span>Bayar Tagihan Bulan Ini</span>
+                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                    <span>{isExpanded ? 'Tutup Rincian' : `Rincian Tenor (${inst.totalTenorMonths} Bln)`}</span>
                   </button>
+
+                  {inst.status === 'ACTIVE' && (
+                    <button
+                      onClick={() => openPayModalDefault(inst)}
+                      className={styles.payBtn}
+                    >
+                      <CheckCircle size={16} />
+                      <span>Bayar Bulan Ini</span>
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pay Modal */}
+      {payModalOpen && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h3>Bayar Tagihan Cicilan</h3>
+
+            {payPaymentInfo && (
+              <div className={styles.payTargetInfo}>
+                <div><strong>{payPaymentInfo.installmentTitle}</strong></div>
+                <div>Tagihan Tenor Ke-{payPaymentInfo.tenorNumber} dari {payPaymentInfo.totalTenor} ({payPaymentInfo.monthYear})</div>
+                <div style={{ color: 'var(--accent)', fontWeight: 600, marginTop: 4 }}>
+                  Jumlah: Rp {payPaymentInfo.amount.toLocaleString('id-ID')}
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handlePayInstallment} className={styles.form}>
+              <div className={styles.formGroup}>
+                <label>Pilih Dompet / Akun Pembayaran</label>
+                <select
+                  value={payAccountId}
+                  onChange={(e) => setPayAccountId(e.target.value)}
+                  required
+                >
+                  {accounts.length === 0 ? (
+                    <option value="">Buat dompet terlebih dahulu</option>
+                  ) : (
+                    accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} (Saldo: Rp {a.balance.toLocaleString('id-ID')})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div className={styles.modalActions}>
+                <button
+                  type="button"
+                  onClick={() => setPayModalOpen(false)}
+                  className={styles.cancelBtn}
+                >
+                  Batal
+                </button>
+                <button type="submit" className={styles.submitBtn} disabled={paySubmitting}>
+                  {paySubmitting ? <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> : 'Konfirmasi Pembayaran'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Add Modal */}
       {isModalOpen && (
@@ -236,6 +422,8 @@ export default function InstallmentsPage() {
           <div className={styles.modalContent}>
             <h3>Tambah Cicilan Baru</h3>
             <form onSubmit={handleAddInstallment} className={styles.form}>
+              {error && <div style={{ color: '#EF4444', fontSize: '0.85rem', marginBottom: '0.5rem' }}>{error}</div>}
+
               <div className={styles.formGroup}>
                 <label>Nama Cicilan / Barang</label>
                 <input
@@ -256,6 +444,30 @@ export default function InstallmentsPage() {
                   onChange={(e) => setNewProvider(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className={styles.formGrid}>
+                <div className={styles.formGroup}>
+                  <label>Mulai dari Bulan & Tahun</label>
+                  <input
+                    type="month"
+                    value={startMonthYear}
+                    onChange={(e) => setStartMonthYear(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>Tanggal Jatuh Tempo (1-31)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    placeholder="10"
+                    value={newDueDateDay}
+                    onChange={(e) => setNewDueDateDay(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
               <div className={styles.formGrid}>
@@ -281,26 +493,29 @@ export default function InstallmentsPage() {
                 </div>
               </div>
 
-              <div className={styles.formGrid}>
-                <div className={styles.formGroup}>
-                  <label>Total Harga / Pinjaman (Rp)</label>
-                  <input
-                    type="number"
-                    placeholder="18000000"
-                    value={newTotalAmount}
-                    onChange={(e) => setNewTotalAmount(e.target.value)}
-                  />
-                </div>
-                <div className={styles.formGroup}>
-                  <label>Tanggal Jatuh Tempo (1-31)</label>
-                  <input
-                    type="number"
-                    placeholder="10"
-                    value={newDueDateDay}
-                    onChange={(e) => setNewDueDateDay(e.target.value)}
-                    required
-                  />
-                </div>
+              <div className={styles.formGroup}>
+                <label>Total Harga / Pinjaman (Rp)</label>
+                <input
+                  type="number"
+                  placeholder="18000000"
+                  value={newTotalAmount}
+                  onChange={(e) => setNewTotalAmount(e.target.value)}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Dompet Pemotong Otomatis (Opsional)</label>
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                >
+                  <option value="">-- Tanpa dompet default --</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className={styles.modalActions}>
@@ -311,8 +526,8 @@ export default function InstallmentsPage() {
                 >
                   Batal
                 </button>
-                <button type="submit" className={styles.submitBtn}>
-                  Simpan Cicilan
+                <button type="submit" className={styles.submitBtn} disabled={submitting}>
+                  {submitting ? <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> : 'Simpan Cicilan'}
                 </button>
               </div>
             </form>
@@ -322,3 +537,4 @@ export default function InstallmentsPage() {
     </div>
   );
 }
+

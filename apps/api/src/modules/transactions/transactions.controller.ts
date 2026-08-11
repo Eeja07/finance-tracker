@@ -58,6 +58,8 @@ export class TransactionsController {
       recipientOrPayer?: string;
       notes?: string;
       date?: string;
+      receiptUrl?: string;
+      itemImageUrl?: string;
     },
   ) {
     return this.transactionsService.create(req.user.id, body);
