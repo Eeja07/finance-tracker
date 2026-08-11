@@ -79,6 +79,89 @@
   background: var(--border);
 }
 
+.monthlyDueSection {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.monthlyDueHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.monthlyDueHeader h3 {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.monthlyDueCount {
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.monthlyDueList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.monthlyDueItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.monthlyDueItem > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.monthlyDueItem strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.monthlyDueItem span {
+  color: var(--text-subtle);
+  font-size: 0.7rem;
+}
+
+.monthlyDueItem .monthlyDueAmount {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.monthlyAllPaid {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--income-color);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
 .waBadge {
   display: flex;
   align-items: center;
@@ -231,6 +314,26 @@
   height: 100%;
   background: var(--accent);
   border-radius: 3px;
+}
+
+.currentMonthStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.currentMonthPaid {
+  background: var(--income-bg);
+  color: var(--income-color);
+}
+
+.currentMonthPending {
+  background: rgba(245, 158, 11, 0.1);
+  color: #D97706;
 }
 
 .cardFooter {
@@ -539,5 +642,9 @@
 
   .summaryDivider {
     display: none;
+  }
+
+  .monthlyDueList {
+    grid-template-columns: 1fr;
   }
 }

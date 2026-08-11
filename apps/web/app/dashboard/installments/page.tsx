@@ -82,6 +82,19 @@ export default function InstallmentsPage() {
 
   const activeInstallments = installments.filter((x) => x.status === 'ACTIVE');
   const totalMonthlyCommitment = activeInstallments.reduce((acc, x) => acc + x.monthlyAmount, 0);
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
+  const getCurrentMonthPayment = (inst: Installment) =>
+    inst.payments?.find((payment) => {
+      const dueDate = new Date(payment.dueDate);
+      return dueDate.getMonth() === currentMonth && dueDate.getFullYear() === currentYear;
+    });
+  const unpaidThisMonth = activeInstallments.filter((inst) => {
+    const payment = getCurrentMonthPayment(inst);
+    return payment && payment.status !== 'PAID';
+  });
+  const currentMonthLabel = currentDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
 
   const openCreateModal = () => {
     setEditingInstallment(null);
@@ -142,8 +155,10 @@ export default function InstallmentsPage() {
     setPayModalOpen(true);
   };
 
-  const openPayModalDefault = (inst: Installment) => {
-    const pendingPayment = inst.payments?.find((p) => p.status === 'PENDING');
+  const openPayModalDefault = (inst: Installment, paymentId?: string) => {
+    const pendingPayment = paymentId
+      ? inst.payments?.find((p) => p.id === paymentId && p.status !== 'PAID')
+      : inst.payments?.find((p) => p.status !== 'PAID');
     if (!pendingPayment) {
       alert('Semua tagihan untuk cicilan ini sudah lunas.');
       return;
@@ -271,6 +286,40 @@ export default function InstallmentsPage() {
         </div>
       </div>
 
+      <section className={styles.monthlyDueSection}>
+        <div className={styles.monthlyDueHeader}>
+          <div>
+            <span className={styles.summaryLabel}>Perlu Perhatian</span>
+            <h3>Cicilan yang Belum Dibayar Bulan Ini</h3>
+          </div>
+          <span className={styles.monthlyDueCount}>{unpaidThisMonth.length} cicilan</span>
+        </div>
+        {unpaidThisMonth.length === 0 ? (
+          <div className={styles.monthlyAllPaid}>
+            <CheckCircle size={18} /> Semua cicilan bulan {currentMonthLabel} sudah lunas.
+          </div>
+        ) : (
+          <div className={styles.monthlyDueList}>
+            {unpaidThisMonth.map((inst) => {
+              const payment = getCurrentMonthPayment(inst);
+              return (
+                <div className={styles.monthlyDueItem} key={inst.id}>
+                  <div>
+                    <strong>{inst.title}</strong>
+                    <span>
+                      {payment
+                        ? `Jatuh tempo ${new Date(payment.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`
+                        : `Jatuh tempo setiap tanggal ${inst.dueDateDay}`}
+                    </span>
+                  </div>
+                  <span className={styles.monthlyDueAmount}>Rp {inst.monthlyAmount.toLocaleString('id-ID')}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
           <Loader2 size={24} style={{ animation: 'spin 0.8s linear infinite', color: 'var(--primary)' }} />
@@ -290,6 +339,8 @@ export default function InstallmentsPage() {
             const remainingTenor = Math.max(inst.totalTenorMonths - completedTenor, 0);
             const progressPct = Math.round((completedTenor / inst.totalTenorMonths) * 100);
             const isExpanded = !!expandedTenors[inst.id];
+            const currentMonthPayment = getCurrentMonthPayment(inst);
+            const currentMonthPaid = currentMonthPayment?.status === 'PAID';
 
             return (
               <div
@@ -364,6 +415,17 @@ export default function InstallmentsPage() {
                         style={{ width: `${progressPct}%` }}
                       ></div>
                     </div>
+                  </div>
+
+                  <div className={`${styles.currentMonthStatus} ${currentMonthPaid ? styles.currentMonthPaid : styles.currentMonthPending}`}>
+                    {currentMonthPaid ? <CheckCircle size={15} /> : <Clock size={15} />}
+                    <span>
+                      {currentMonthPaid
+                        ? `Bulan ${currentMonthLabel} sudah lunas`
+                        : currentMonthPayment
+                        ? `Bulan ${currentMonthLabel} belum dibayar`
+                        : 'Tidak ada tagihan pada bulan ini'}
+                    </span>
                   </div>
 
                   {/* Tenor Monthly Schedule Breakdown */}
@@ -448,11 +510,11 @@ export default function InstallmentsPage() {
 
                   {inst.status === 'ACTIVE' && (
                     <button
-                      onClick={() => openPayModalDefault(inst)}
+                      onClick={() => openPayModalDefault(inst, currentMonthPaid ? undefined : currentMonthPayment?.id)}
                       className={styles.payBtn}
                     >
-                      <CheckCircle size={16} />
-                      <span>Bayar Bulan Ini</span>
+                      {currentMonthPaid ? <Calendar size={16} /> : <CheckCircle size={16} />}
+                      <span>{currentMonthPaid ? 'Bayar Bulan Lainnya' : 'Bayar Bulan Ini'}</span>
                     </button>
                   )}
                 </div>
