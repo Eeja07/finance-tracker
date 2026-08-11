@@ -1,10 +1,52 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { InstallmentStatus, PaymentStatus, TransactionType } from '@prisma/client';
+import { InstallmentStatus, PaymentStatus, Prisma, TransactionType } from '@prisma/client';
 
 @Injectable()
 export class InstallmentsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private normalizeRupiahAmount(amount: number, label: string): number {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException(`${label} harus lebih dari 0`);
+    }
+    if (Number.isInteger(amount)) {
+      return amount;
+    }
+
+    const scaledByThousand = amount * 1000;
+    if (amount < 1000 && Number.isInteger(scaledByThousand)) {
+      return scaledByThousand;
+    }
+
+    throw new BadRequestException(`${label} harus bilangan bulat Rupiah (tanpa desimal)`);
+  }
+
+  private validateDueDateDay(day: number): number {
+    if (!Number.isInteger(day) || day < 1 || day > 31) {
+      throw new BadRequestException('Tanggal jatuh tempo harus di antara 1 sampai 31');
+    }
+    return day;
+  }
+
+  private validateTenorMonths(tenor: number): number {
+    if (!Number.isInteger(tenor) || tenor < 1) {
+      throw new BadRequestException('Tenor cicilan minimal 1 bulan');
+    }
+    return tenor;
+  }
+
+  private buildDueDate(startDate: Date, dueDateDay: number, tenorNumber: number): Date {
+    const startYear = startDate.getFullYear();
+    const startMonth = startDate.getMonth(); // 0-indexed
+    const totalMonthsFromStart = startMonth + (tenorNumber - 1);
+    const targetYear = startYear + Math.floor(totalMonthsFromStart / 12);
+    const targetMonth = totalMonthsFromStart % 12;
+    const maxDaysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const actualDay = Math.min(Math.max(1, dueDateDay), maxDaysInMonth);
+
+    return new Date(targetYear, targetMonth, actualDay, 12, 0, 0);
+  }
 
   async findAll(userId: string, status?: InstallmentStatus) {
     return this.prisma.installment.findMany({
@@ -52,6 +94,10 @@ export class InstallmentsService {
     },
   ) {
     const startDate = data.startDate ? new Date(data.startDate) : new Date();
+    const monthlyAmount = this.normalizeRupiahAmount(data.monthlyAmount, 'Nominal cicilan per bulan');
+    const totalAmount = this.normalizeRupiahAmount(data.totalAmount, 'Total harga / pinjaman');
+    const totalTenorMonths = this.validateTenorMonths(data.totalTenorMonths);
+    const dueDateDay = this.validateDueDateDay(data.dueDateDay);
 
     return this.prisma.$transaction(async (tx) => {
       const installment = await tx.installment.create({
@@ -60,12 +106,12 @@ export class InstallmentsService {
           accountId: data.accountId || null,
           title: data.title,
           provider: data.provider,
-          totalAmount: data.totalAmount,
-          monthlyAmount: data.monthlyAmount,
-          totalTenorMonths: data.totalTenorMonths,
-          remainingTenorMonths: data.totalTenorMonths,
+          totalAmount,
+          monthlyAmount,
+          totalTenorMonths,
+          remainingTenorMonths: totalTenorMonths,
           startDate,
-          dueDateDay: data.dueDateDay,
+          dueDateDay,
           interestRate: data.interestRate || 0,
           status: InstallmentStatus.ACTIVE,
           notes: data.notes || null,
@@ -81,24 +127,12 @@ export class InstallmentsService {
         status: PaymentStatus;
       }[] = [];
 
-      const startYear = startDate.getFullYear();
-      const startMonth = startDate.getMonth(); // 0-indexed
-
-      for (let i = 1; i <= data.totalTenorMonths; i++) {
-        const totalMonthsFromStart = startMonth + (i - 1);
-        const targetYear = startYear + Math.floor(totalMonthsFromStart / 12);
-        const targetMonth = totalMonthsFromStart % 12;
-
-        const maxDaysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
-        const actualDay = Math.min(Math.max(1, data.dueDateDay), maxDaysInMonth);
-
-        const dueDate = new Date(targetYear, targetMonth, actualDay, 12, 0, 0);
-
+      for (let i = 1; i <= totalTenorMonths; i++) {
         paymentsData.push({
           installmentId: installment.id,
           tenorNumber: i,
-          amount: data.monthlyAmount,
-          dueDate,
+          amount: monthlyAmount,
+          dueDate: this.buildDueDate(startDate, dueDateDay, i),
           status: PaymentStatus.PENDING,
         });
       }
@@ -185,7 +219,7 @@ export class InstallmentsService {
             installmentPaymentId: paymentId,
             type: TransactionType.EXPENSE,
             amount: payment.amount,
-            date: paidDate,
+            date: payment.dueDate,
             description: `Pembayaran ${payment.installment.title} (Bulan Ke-${payment.tenorNumber}/${payment.installment.totalTenorMonths})`,
             recipientOrPayer: payment.installment.provider,
           },
@@ -225,6 +259,156 @@ export class InstallmentsService {
 
       return updatedPayment;
     });
+  }
+
+  async update(
+    userId: string,
+    id: string,
+    data: Partial<{
+      title: string;
+      provider: string;
+      totalAmount: number;
+      monthlyAmount: number;
+      totalTenorMonths: number;
+      startDate: string;
+      dueDateDay: number;
+      accountId?: string;
+      notes?: string;
+      status?: InstallmentStatus;
+    }>,
+  ) {
+    const existing = await this.findOne(userId, id);
+    const startDate = data.startDate ? new Date(data.startDate) : existing.startDate;
+    const dueDateDay =
+      data.dueDateDay !== undefined
+        ? this.validateDueDateDay(data.dueDateDay)
+        : existing.dueDateDay;
+    const normalizedMonthlyAmount =
+      data.monthlyAmount !== undefined
+        ? this.normalizeRupiahAmount(data.monthlyAmount, 'Nominal cicilan per bulan')
+        : undefined;
+    const monthlyAmount = normalizedMonthlyAmount ?? existing.monthlyAmount;
+    const normalizedTotalAmount =
+      data.totalAmount !== undefined
+        ? this.normalizeRupiahAmount(data.totalAmount, 'Total harga / pinjaman')
+        : undefined;
+    const requestedTotalTenor =
+      data.totalTenorMonths !== undefined
+        ? this.validateTenorMonths(data.totalTenorMonths)
+        : existing.totalTenorMonths;
+
+    return this.prisma.$transaction(async (tx) => {
+      const allPayments = await tx.installmentPayment.findMany({
+        where: { installmentId: id },
+        orderBy: { tenorNumber: 'asc' },
+      });
+      const paidPayments = allPayments.filter((p) => p.status === PaymentStatus.PAID);
+
+      if (requestedTotalTenor < paidPayments.length) {
+        throw new BadRequestException(
+          `Tenor tidak boleh kurang dari jumlah tenor yang sudah dibayar (${paidPayments.length} bulan)`,
+        );
+      }
+
+      if (requestedTotalTenor > allPayments.length) {
+        const newPayments = Array.from(
+          { length: requestedTotalTenor - allPayments.length },
+          (_, index) => {
+            const tenorNumber = allPayments.length + index + 1;
+            return {
+              installmentId: id,
+              tenorNumber,
+              amount: monthlyAmount,
+              dueDate: this.buildDueDate(startDate, dueDateDay, tenorNumber),
+              status: PaymentStatus.PENDING,
+            };
+          },
+        );
+
+        await tx.installmentPayment.createMany({ data: newPayments });
+      } else if (requestedTotalTenor < allPayments.length) {
+        const paymentsToRemove = allPayments.filter((payment) => payment.tenorNumber > requestedTotalTenor);
+        const paidToRemove = paymentsToRemove.filter((payment) => payment.status === PaymentStatus.PAID);
+
+        if (paidToRemove.length > 0) {
+          throw new BadRequestException(
+            'Tenor tidak bisa dipotong karena ada pembayaran lunas di periode yang akan dihapus',
+          );
+        }
+
+        if (paymentsToRemove.length > 0) {
+          await tx.installmentPayment.deleteMany({
+            where: { id: { in: paymentsToRemove.map((payment) => payment.id) } },
+          });
+        }
+      }
+
+      // Update PENDING payments if monthlyAmount or dueDateDay/startDate changed
+      if (data.monthlyAmount !== undefined || data.dueDateDay !== undefined || data.startDate !== undefined) {
+        const pendingPayments = await tx.installmentPayment.findMany({
+          where: { installmentId: id, status: PaymentStatus.PENDING },
+          orderBy: { tenorNumber: 'asc' },
+        });
+
+        for (const p of pendingPayments) {
+          const updateObj: Prisma.InstallmentPaymentUpdateInput = {};
+          if (normalizedMonthlyAmount !== undefined) {
+            updateObj.amount = normalizedMonthlyAmount;
+          }
+          if (data.dueDateDay !== undefined || data.startDate !== undefined) {
+            updateObj.dueDate = this.buildDueDate(startDate, dueDateDay, p.tenorNumber);
+          }
+
+          if (Object.keys(updateObj).length > 0) {
+            await tx.installmentPayment.update({
+              where: { id: p.id },
+              data: updateObj,
+            });
+          }
+        }
+      }
+
+      const remainingPending = await tx.installmentPayment.count({
+        where: { installmentId: id, status: PaymentStatus.PENDING },
+      });
+
+      const derivedStatus =
+        data.status !== undefined
+          ? data.status
+          : existing.status === InstallmentStatus.CANCELLED
+          ? InstallmentStatus.CANCELLED
+          : remainingPending === 0
+          ? InstallmentStatus.COMPLETED
+          : InstallmentStatus.ACTIVE;
+
+      const updated = await tx.installment.update({
+        where: { id },
+        data: {
+          ...(data.title ? { title: data.title } : {}),
+          ...(data.provider ? { provider: data.provider } : {}),
+          ...(normalizedTotalAmount !== undefined ? { totalAmount: normalizedTotalAmount } : {}),
+          ...(normalizedMonthlyAmount !== undefined ? { monthlyAmount: normalizedMonthlyAmount } : {}),
+          ...(data.totalTenorMonths !== undefined ? { totalTenorMonths: data.totalTenorMonths } : {}),
+          ...(data.dueDateDay !== undefined ? { dueDateDay: data.dueDateDay } : {}),
+          ...(data.accountId !== undefined ? { accountId: data.accountId } : {}),
+          ...(data.notes !== undefined ? { notes: data.notes } : {}),
+          ...(data.startDate ? { startDate: new Date(data.startDate) } : {}),
+          remainingTenorMonths: remainingPending,
+          status: derivedStatus,
+        },
+        include: {
+          account: true,
+          payments: { orderBy: { tenorNumber: 'asc' } },
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  async delete(userId: string, id: string) {
+    await this.findOne(userId, id);
+    return this.prisma.installment.delete({ where: { id } });
   }
 
   async getUpcomingReminders(userId?: string) {

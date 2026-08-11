@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, Request, UseGuards } from '@nestjs/common';
 import { InstallmentsService } from './installments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InstallmentStatus } from '@prisma/client';
@@ -41,6 +41,20 @@ export class InstallmentsController {
     },
   ) {
     return this.installmentsService.create(req.user.id, body);
+  }
+
+  @Patch(':id')
+  async update(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    return this.installmentsService.update(req.user.id, id, body);
+  }
+
+  @Delete(':id')
+  async delete(@Request() req: any, @Param('id') id: string) {
+    return this.installmentsService.delete(req.user.id, id);
   }
 
   @Post('payments/:id/pay')

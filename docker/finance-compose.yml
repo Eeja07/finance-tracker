@@ -16,7 +16,7 @@ services:
 
   finance-tracker-api:
     build:
-      context: /opt/apps/finance-tracker
+      context: ..
       dockerfile: apps/api/Dockerfile
     container_name: finance-tracker-api
     restart: unless-stopped
@@ -41,7 +41,7 @@ services:
 
   finance-tracker-web:
     build:
-      context: /opt/apps/finance-tracker
+      context: ..
       dockerfile: apps/web/Dockerfile
     container_name: finance-tracker-web-app
     restart: unless-stopped

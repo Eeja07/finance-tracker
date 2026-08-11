@@ -106,18 +106,20 @@ export default function DashboardOverview() {
               <div className={styles.kpiFooter}>Terhitung real-time DB</div>
             </div>
 
-            <div className={styles.kpiCard}>
-              <div className={styles.kpiHeader}>
-                <span className={styles.kpiTitle}>Pengeluaran Bulan Ini</span>
-                <div className={styles.kpiIconExpense}>
-                  <TrendingDown size={20} />
+            <Link href="/dashboard/transactions?type=EXPENSE#transactions-filters" className={styles.kpiCardLink}>
+              <div className={styles.kpiCard}>
+                <div className={styles.kpiHeader}>
+                  <span className={styles.kpiTitle}>Pengeluaran Bulan Ini</span>
+                  <div className={styles.kpiIconExpense}>
+                    <TrendingDown size={20} />
+                  </div>
                 </div>
+                <div className={`${styles.kpiValue} ${styles.expenseText}`}>
+                  Rp {monthlyExpense.toLocaleString('id-ID')}
+                </div>
+                <div className={styles.kpiFooter}>Terhitung real-time DB</div>
               </div>
-              <div className={`${styles.kpiValue} ${styles.expenseText}`}>
-                Rp {monthlyExpense.toLocaleString('id-ID')}
-              </div>
-              <div className={styles.kpiFooter}>Terhitung real-time DB</div>
-            </div>
+            </Link>
 
             <div className={styles.kpiCard}>
               <div className={styles.kpiHeader}>

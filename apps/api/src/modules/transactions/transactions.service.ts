@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { TransactionType } from '@prisma/client';
+import { Prisma, TransactionType } from '@prisma/client';
 
 @Injectable()
 export class TransactionsService {
@@ -22,16 +22,32 @@ export class TransactionsService {
     const limit = Number(options?.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const where: any = { userId };
+    const where: Prisma.TransactionWhereInput = { userId };
 
     if (options?.accountId) where.accountId = options.accountId;
     if (options?.categoryId) where.categoryId = options.categoryId;
     if (options?.type) where.type = options.type;
 
     if (options?.startDate || options?.endDate) {
-      where.date = {};
-      if (options?.startDate) where.date.gte = new Date(options.startDate);
-      if (options?.endDate) where.date.lte = new Date(options.endDate);
+      const dateRange: Prisma.DateTimeFilter = {};
+      if (options?.startDate) dateRange.gte = new Date(options.startDate);
+      if (options?.endDate) dateRange.lte = new Date(options.endDate);
+
+      where.AND = [
+        {
+          OR: [
+            {
+              installmentPaymentId: null,
+              date: dateRange,
+            },
+            {
+              installmentPayment: {
+                dueDate: dateRange,
+              },
+            },
+          ],
+        },
+      ];
     }
 
     const [items, total] = await Promise.all([
@@ -43,6 +59,7 @@ export class TransactionsService {
         include: {
           account: { select: { id: true, name: true, color: true, type: true } },
           category: { select: { id: true, name: true, color: true, icon: true } },
+          installmentPayment: { select: { id: true, dueDate: true, paidDate: true, tenorNumber: true } },
         },
       }),
       this.prisma.transaction.count({ where }),
@@ -127,6 +144,72 @@ export class TransactionsService {
     });
   }
 
+  async update(
+    userId: string,
+    id: string,
+    data: Partial<{
+      accountId: string;
+      categoryId: string;
+      type: TransactionType;
+      amount: number;
+      description: string;
+      recipientOrPayer?: string;
+      notes?: string;
+      date?: string | Date;
+      receiptUrl?: string;
+      itemImageUrl?: string;
+    }>,
+  ) {
+    const existing = await this.findOne(userId, id);
+
+    if (data.amount !== undefined && data.amount <= 0) {
+      throw new BadRequestException('Jumlah transaksi harus lebih dari 0');
+    }
+
+    const newAccountId = data.accountId || existing.accountId;
+    const newType = data.type || existing.type;
+    const newAmount = data.amount !== undefined ? data.amount : existing.amount;
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Revert old balance impact on existing account
+      const oldRevertImpact = existing.type === TransactionType.INCOME ? -existing.amount : existing.amount;
+      await tx.account.update({
+        where: { id: existing.accountId },
+        data: { balance: { increment: oldRevertImpact } },
+      });
+
+      // 2. Update transaction
+      const updatedTx = await tx.transaction.update({
+        where: { id },
+        data: {
+          ...(data.accountId ? { accountId: data.accountId } : {}),
+          ...(data.categoryId ? { categoryId: data.categoryId } : {}),
+          ...(data.type ? { type: data.type } : {}),
+          ...(data.amount !== undefined ? { amount: data.amount } : {}),
+          ...(data.description !== undefined ? { description: data.description } : {}),
+          ...(data.recipientOrPayer !== undefined ? { recipientOrPayer: data.recipientOrPayer } : {}),
+          ...(data.notes !== undefined ? { notes: data.notes } : {}),
+          ...(data.date ? { date: new Date(data.date) } : {}),
+          ...(data.receiptUrl !== undefined ? { receiptUrl: data.receiptUrl } : {}),
+          ...(data.itemImageUrl !== undefined ? { itemImageUrl: data.itemImageUrl } : {}),
+        },
+        include: {
+          account: true,
+          category: true,
+        },
+      });
+
+      // 3. Apply new balance impact on target account
+      const newApplyImpact = newType === TransactionType.INCOME ? newAmount : -newAmount;
+      await tx.account.update({
+        where: { id: newAccountId },
+        data: { balance: { increment: newApplyImpact } },
+      });
+
+      return updatedTx;
+    });
+  }
+
   async delete(userId: string, id: string) {
     const existing = await this.findOne(userId, id);
 
@@ -151,11 +234,22 @@ export class TransactionsService {
       where: {
         userId,
         type: TransactionType.EXPENSE,
-        date: { gte: startOfDay, lte: endOfDay },
+        OR: [
+          {
+            installmentPaymentId: null,
+            date: { gte: startOfDay, lte: endOfDay },
+          },
+          {
+            installmentPayment: {
+              dueDate: { gte: startOfDay, lte: endOfDay },
+            },
+          },
+        ],
       },
       include: {
         category: true,
         account: true,
+        installmentPayment: true,
       },
       orderBy: { date: 'desc' },
     });
@@ -190,9 +284,19 @@ export class TransactionsService {
     const monthlyTxs = await this.prisma.transaction.findMany({
       where: {
         userId,
-        date: { gte: startOfMonth, lte: endOfMonth },
+        OR: [
+          {
+            installmentPaymentId: null,
+            date: { gte: startOfMonth, lte: endOfMonth },
+          },
+          {
+            installmentPayment: {
+              dueDate: { gte: startOfMonth, lte: endOfMonth },
+            },
+          },
+        ],
       },
-      include: { category: true },
+      include: { category: true, installmentPayment: true },
     });
 
     let monthlyIncome = 0;

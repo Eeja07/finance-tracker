@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Wallet, Building2, CreditCard, Plus, Loader2, Trash2 } from 'lucide-react';
+import { Wallet, Building2, CreditCard, Plus, Loader2, Trash2, Edit2 } from 'lucide-react';
 import { accountsApi, Account } from '@/lib/api';
 import styles from './accounts.module.css';
 
@@ -9,6 +9,8 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<'BANK' | 'EWALLET' | 'CASH' | 'CREDIT_CARD'>('BANK');
   const [newBalance, setNewBalance] = useState('');
@@ -34,27 +36,53 @@ export default function AccountsPage() {
 
   const totalBalance = accounts.reduce((acc, a) => acc + a.balance, 0);
 
-  const handleAddAccount = async (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setEditingAccount(null);
+    setNewName('');
+    setNewType('BANK');
+    setNewBalance('');
+    setNewAccountNum('');
+    setError('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (acc: Account) => {
+    setEditingAccount(acc);
+    setNewName(acc.name);
+    setNewType(acc.type as any);
+    setNewBalance(String(acc.balance));
+    setNewAccountNum(acc.accountNumber || '');
+    setError('');
+    setIsModalOpen(true);
+  };
+
+  const handleSaveAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newBalance) return;
     setError('');
     setSubmitting(true);
 
     try {
-      await accountsApi.create({
-        name: newName,
-        type: newType,
-        balance: parseFloat(newBalance),
-        accountNumber: newAccountNum || undefined,
-        color: 'var(--accent)',
-      });
+      if (editingAccount) {
+        await accountsApi.update(editingAccount.id, {
+          name: newName,
+          type: newType,
+          balance: parseFloat(newBalance),
+          accountNumber: newAccountNum || undefined,
+        });
+      } else {
+        await accountsApi.create({
+          name: newName,
+          type: newType,
+          balance: parseFloat(newBalance),
+          accountNumber: newAccountNum || undefined,
+          color: 'var(--accent)',
+        });
+      }
       setIsModalOpen(false);
-      setNewName('');
-      setNewBalance('');
-      setNewAccountNum('');
       await loadAccounts();
     } catch (err: any) {
-      setError(err.message || 'Gagal membuat akun');
+      setError(err.message || 'Gagal menyimpan akun');
     } finally {
       setSubmitting(false);
     }
@@ -86,7 +114,7 @@ export default function AccountsPage() {
           <h2>Dompet &amp; Akun Bank</h2>
           <p>Kelola rekening bank, e-wallet, dan uang tunai kamu di satu tempat.</p>
         </div>
-        <button onClick={() => { setError(''); setIsModalOpen(true); }} className={styles.addBtn}>
+        <button onClick={openCreateModal} className={styles.addBtn}>
           <Plus size={18} />
           <span>Tambah Dompet</span>
         </button>
@@ -118,6 +146,13 @@ export default function AccountsPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <span className={styles.typeBadge}>{acc.type}</span>
                     <button
+                      onClick={() => openEditModal(acc)}
+                      className={styles.deleteBtn}
+                      title="Edit Dompet"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button
                       onClick={() => handleArchive(acc.id)}
                       className={styles.deleteBtn}
                       title="Hapus / Arsipkan"
@@ -147,8 +182,8 @@ export default function AccountsPage() {
       {isModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
-            <h3>Tambah Dompet / Bank Baru</h3>
-            <form onSubmit={handleAddAccount} className={styles.form}>
+            <h3>{editingAccount ? 'Edit Dompet / Bank' : 'Tambah Dompet / Bank Baru'}</h3>
+            <form onSubmit={handleSaveAccount} className={styles.form}>
               {error && <div className={styles.errorAlert}>{error}</div>}
 
               <div className={styles.formGroup}>
@@ -174,7 +209,7 @@ export default function AccountsPage() {
                 </div>
 
                 <div className={styles.formGroup}>
-                  <label>Saldo Awal (Rp)</label>
+                  <label>Saldo {editingAccount ? 'Saat Ini' : 'Awal'} (Rp)</label>
                   <input
                     type="number"
                     placeholder="1000000"
@@ -200,7 +235,7 @@ export default function AccountsPage() {
                   Batal
                 </button>
                 <button type="submit" className={styles.submitBtn} disabled={submitting}>
-                  {submitting ? <Loader2 size={16} className={styles.spinningIcon} /> : 'Simpan Dompet'}
+                  {submitting ? <Loader2 size={16} className={styles.spinningIcon} /> : (editingAccount ? 'Simpan Perubahan' : 'Simpan Dompet')}
                 </button>
               </div>
             </form>

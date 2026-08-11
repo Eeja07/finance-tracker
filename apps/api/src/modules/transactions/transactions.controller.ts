@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Query, Body, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, Request, UseGuards } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TransactionType } from '@prisma/client';
@@ -63,6 +63,27 @@ export class TransactionsController {
     },
   ) {
     return this.transactionsService.create(req.user.id, body);
+  }
+
+  @Patch(':id')
+  async update(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Body()
+    body: Partial<{
+      accountId: string;
+      categoryId: string;
+      type: TransactionType;
+      amount: number;
+      description: string;
+      recipientOrPayer?: string;
+      notes?: string;
+      date?: string;
+      receiptUrl?: string;
+      itemImageUrl?: string;
+    }>,
+  ) {
+    return this.transactionsService.update(req.user.id, id, body);
   }
 
   @Delete(':id')

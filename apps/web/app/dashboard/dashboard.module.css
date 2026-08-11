@@ -74,6 +74,12 @@
   gap: 16px;
 }
 
+.kpiCardLink {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
 .kpiCard {
   background: var(--bg-card);
   border: 1px solid var(--border);

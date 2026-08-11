@@ -254,6 +254,8 @@ export const transactionsApi = {
   getDaily: (date?: string) => request<DailyExpenseSummary>(`/transactions/daily${date ? `?date=${date}` : ''}`),
   create: (body: { accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string }) =>
     request<Transaction>('/transactions', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: Partial<{ accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string }>) =>
+    request<Transaction>(`/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (id: string) => request<Transaction>(`/transactions/${id}`, { method: 'DELETE' }),
 };
 
@@ -276,6 +278,9 @@ export const installmentsApi = {
   getOne: (id: string) => request<Installment>(`/installments/${id}`),
   create: (body: { title: string; provider: string; totalAmount: number; monthlyAmount: number; totalTenorMonths: number; startDate: string; dueDateDay: number; accountId?: string; interestRate?: number; notes?: string }) =>
     request<Installment>('/installments', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: Partial<{ title: string; provider: string; totalAmount: number; monthlyAmount: number; totalTenorMonths: number; startDate: string; dueDateDay: number; accountId?: string; interestRate?: number; notes?: string; status?: string }>) =>
+    request<Installment>(`/installments/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  delete: (id: string) => request<Installment>(`/installments/${id}`, { method: 'DELETE' }),
   pay: (paymentId: string, body?: { accountId?: string; paidDate?: string }) =>
     request<InstallmentPayment>(`/installments/payments/${paymentId}/pay`, {
       method: 'POST',

@@ -4,9 +4,13 @@ import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   ArrowUpRight,
   ArrowDownLeft,
   Trash2,
+  Edit2,
   Loader2,
   Package,
   ChevronDown,
@@ -35,7 +39,10 @@ export default function TransactionsPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('ALL');
+  const [sortColumn, setSortColumn] = useState<'description' | 'category' | 'account' | 'date' | 'amount'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [expandedTxId, setExpandedTxId] = useState<string | null>(null);
 
   // Helper date function (YYYY-MM-DD)
@@ -96,11 +103,19 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
-    if (categories.length > 0) {
+    if (typeof window === 'undefined') return;
+    const typeParam = new URLSearchParams(window.location.search).get('type');
+    if (typeParam === 'EXPENSE' || typeParam === 'INCOME') {
+      setFilterType(typeParam);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (categories.length > 0 && !editingTransaction) {
       const match = categories.find((c) => c.type === newType);
       if (match) setSelectedCategoryId(match.id);
     }
-  }, [newType, categories]);
+  }, [newType, categories, editingTransaction]);
 
   // Recalculate amount if multi-item is active
   useEffect(() => {
@@ -187,7 +202,47 @@ export default function TransactionsPage() {
     return matchesSearch && matchesType;
   });
 
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    switch (sortColumn) {
+      case 'description':
+        return sortDirection === 'asc'
+          ? a.description.localeCompare(b.description, 'id')
+          : b.description.localeCompare(a.description, 'id');
+      case 'category':
+        return sortDirection === 'asc'
+          ? (a.category?.name || '').localeCompare(b.category?.name || '', 'id')
+          : (b.category?.name || '').localeCompare(a.category?.name || '', 'id');
+      case 'account':
+        return sortDirection === 'asc'
+          ? (a.account?.name || '').localeCompare(b.account?.name || '', 'id')
+          : (b.account?.name || '').localeCompare(a.account?.name || '', 'id');
+      case 'amount':
+        return sortDirection === 'asc' ? a.amount - b.amount : b.amount - a.amount;
+      case 'date':
+      default: {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        return sortDirection === 'asc' ? timeA - timeB : timeB - timeA;
+      }
+    }
+  });
+
+  const handleSort = (column: 'description' | 'category' | 'account' | 'date' | 'amount') => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortColumn(column);
+    setSortDirection(column === 'date' || column === 'amount' ? 'desc' : 'asc');
+  };
+
+  const renderSortIcon = (column: 'description' | 'category' | 'account' | 'date' | 'amount') => {
+    if (sortColumn !== column) return <ArrowUpDown size={13} />;
+    return sortDirection === 'asc' ? <ArrowUp size={13} /> : <ArrowDown size={13} />;
+  };
+
   const resetFormState = () => {
+    setEditingTransaction(null);
     setTxDate(getTodayString());
     setNewDesc('');
     setNewAmount('');
@@ -198,7 +253,31 @@ export default function TransactionsPage() {
     setItemList([{ name: '', qty: 1, price: 0 }]);
   };
 
-  const handleAddTransaction = async (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setError('');
+    resetFormState();
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (t: Transaction) => {
+    setError('');
+    setEditingTransaction(t);
+    setNewType(t.type as 'EXPENSE' | 'INCOME');
+    const dateFormatted = new Date(t.date).toISOString().split('T')[0]!;
+    setTxDate(dateFormatted);
+    setNewDesc(t.description);
+    setNewAmount(String(t.amount));
+    setSelectedCategoryId(t.categoryId);
+    setSelectedAccountId(t.accountId);
+    setRecipientOrPayer(t.recipientOrPayer || '');
+    setReceiptImage(t.receiptUrl || null);
+    setItemImage(t.itemImageUrl || null);
+    setIsMultiItem(false);
+    setItemList([{ name: '', qty: 1, price: 0 }]);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDesc || !newAmount) return;
     if (!selectedAccountId) {
@@ -225,18 +304,33 @@ export default function TransactionsPage() {
     setSubmitting(true);
 
     try {
-      await transactionsApi.create({
-        accountId: selectedAccountId,
-        categoryId: selectedCategoryId,
-        type: newType,
-        amount: parseFloat(newAmount),
-        description: isMultiItem ? `${newDesc} (${itemList.length} barang)` : newDesc,
-        recipientOrPayer: recipientOrPayer || undefined,
-        notes: notesFormatted,
-        date: txDate,
-        receiptUrl: receiptImage || undefined,
-        itemImageUrl: newType === 'EXPENSE' ? (itemImage || undefined) : undefined,
-      });
+      if (editingTransaction) {
+        await transactionsApi.update(editingTransaction.id, {
+          accountId: selectedAccountId,
+          categoryId: selectedCategoryId,
+          type: newType,
+          amount: parseFloat(newAmount),
+          description: isMultiItem ? `${newDesc} (${itemList.length} barang)` : newDesc,
+          recipientOrPayer: recipientOrPayer || undefined,
+          notes: notesFormatted !== undefined ? notesFormatted : editingTransaction.notes,
+          date: txDate,
+          receiptUrl: receiptImage || undefined,
+          itemImageUrl: newType === 'EXPENSE' ? (itemImage || undefined) : undefined,
+        });
+      } else {
+        await transactionsApi.create({
+          accountId: selectedAccountId,
+          categoryId: selectedCategoryId,
+          type: newType,
+          amount: parseFloat(newAmount),
+          description: isMultiItem ? `${newDesc} (${itemList.length} barang)` : newDesc,
+          recipientOrPayer: recipientOrPayer || undefined,
+          notes: notesFormatted,
+          date: txDate,
+          receiptUrl: receiptImage || undefined,
+          itemImageUrl: newType === 'EXPENSE' ? (itemImage || undefined) : undefined,
+        });
+      }
 
       setIsModalOpen(false);
       resetFormState();
@@ -268,14 +362,14 @@ export default function TransactionsPage() {
           <h2>Daftar Transaksi</h2>
           <p>Catat, kelola rincian multi-barang, lampiran foto nota &amp; barang, serta atur seluruh cashflow kamu secara terorganisir.</p>
         </div>
-        <button onClick={() => { setError(''); resetFormState(); setIsModalOpen(true); }} className={styles.addBtn}>
+        <button onClick={openCreateModal} className={styles.addBtn}>
           <Plus size={18} />
           <span>Tambah Transaksi</span>
         </button>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className={styles.filterBar}>
+      <div className={styles.filterBar} id="transactions-filters">
         <div className={styles.searchBox}>
           <Search size={18} />
           <input
@@ -318,23 +412,48 @@ export default function TransactionsPage() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Deskripsi &amp; Rincian</th>
-                  <th>Kategori</th>
-                  <th>Dompet</th>
-                  <th>Tanggal</th>
-                  <th>Jumlah</th>
+                  <th>
+                    <button type="button" className={styles.sortHeaderBtn} onClick={() => handleSort('description')}>
+                      <span>Deskripsi &amp; Rincian</span>
+                      {renderSortIcon('description')}
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" className={styles.sortHeaderBtn} onClick={() => handleSort('category')}>
+                      <span>Kategori</span>
+                      {renderSortIcon('category')}
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" className={styles.sortHeaderBtn} onClick={() => handleSort('account')}>
+                      <span>Dompet</span>
+                      {renderSortIcon('account')}
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" className={styles.sortHeaderBtn} onClick={() => handleSort('date')}>
+                      <span>Tanggal</span>
+                      {renderSortIcon('date')}
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" className={styles.sortHeaderBtn} onClick={() => handleSort('amount')}>
+                      <span>Jumlah</span>
+                      {renderSortIcon('amount')}
+                    </button>
+                  </th>
                   <th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {sortedFiltered.length === 0 ? (
                   <tr>
                     <td colSpan={6} style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
                       Belum ada data transaksi. Klik "Tambah Transaksi" untuk mencatat pengeluaran/pemasukan.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((t) => {
+                  sortedFiltered.map((t) => {
                     const formattedDate = new Date(t.date).toLocaleDateString('id-ID', {
                       day: 'numeric',
                       month: 'short',
@@ -406,9 +525,14 @@ export default function TransactionsPage() {
                             {t.type === 'INCOME' ? '+' : '-'} Rp {t.amount.toLocaleString('id-ID')}
                           </td>
                           <td>
-                            <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn} aria-label="Hapus transaksi">
-                              <Trash2 size={16} />
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button onClick={() => openEditModal(t)} className={styles.deleteBtn} aria-label="Edit transaksi" title="Edit Transaksi">
+                                <Edit2 size={16} />
+                              </button>
+                              <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn} aria-label="Hapus transaksi" title="Hapus Transaksi">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                         {isExpanded && t.notes && (
@@ -430,12 +554,12 @@ export default function TransactionsPage() {
 
           {/* Mobile Card List View */}
           <div className={styles.mobileList}>
-            {filtered.length === 0 ? (
+            {sortedFiltered.length === 0 ? (
               <div className={styles.mobileEmptyState}>
                 Belum ada data transaksi. Tambah transaksi baru untuk mencatat pengeluaran/pemasukan kamu.
               </div>
             ) : (
-              filtered.map((t) => {
+              sortedFiltered.map((t) => {
                 const formattedDate = new Date(t.date).toLocaleDateString('id-ID', {
                   day: 'numeric',
                   month: 'short',
@@ -452,9 +576,14 @@ export default function TransactionsPage() {
                         </div>
                         <span className={styles.mobileTitle}>{t.description}</span>
                       </div>
-                      <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn} aria-label="Hapus transaksi">
-                        <Trash2 size={16} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button onClick={() => openEditModal(t)} className={styles.deleteBtn} aria-label="Edit transaksi" title="Edit Transaksi">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => handleDelete(t.id)} className={styles.deleteBtn} aria-label="Hapus transaksi" title="Hapus Transaksi">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
 
                     <div className={styles.mobileCardBody}>
@@ -527,10 +656,10 @@ export default function TransactionsPage() {
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
               <Receipt size={20} style={{ color: 'var(--accent)' }} />
-              <h3>Catat Transaksi Baru</h3>
+              <h3>{editingTransaction ? 'Edit Transaksi' : 'Catat Transaksi Baru'}</h3>
             </div>
 
-            <form onSubmit={handleAddTransaction} className={styles.form}>
+            <form onSubmit={handleSaveTransaction} className={styles.form}>
               {error && <div className={styles.errorAlert}>{error}</div>}
 
               <div className={styles.formGroup}>
@@ -814,7 +943,7 @@ export default function TransactionsPage() {
                   Batal
                 </button>
                 <button type="submit" className={styles.submitBtn} disabled={submitting}>
-                  {submitting ? <Loader2 size={16} className={styles.spinningIcon} /> : 'Simpan Transaksi'}
+                  {submitting ? <Loader2 size={16} className={styles.spinningIcon} /> : (editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi')}
                 </button>
               </div>
             </form>

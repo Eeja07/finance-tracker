@@ -1,0 +1,6 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "sshpass": true,
+        "git --no-pager rev-parse": true
+    }
+}
