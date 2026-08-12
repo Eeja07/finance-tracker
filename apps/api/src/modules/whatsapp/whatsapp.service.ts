@@ -109,12 +109,15 @@ export class WhatsappService {
   private async getPrimaryUserId(phone?: string): Promise<string> {
     if (phone) {
       const cleanPhone = this.normalizePhone(phone);
+      const digitsOnly = cleanPhone.replace(/\D/g, '');
+      const lastDigits = digitsOnly.length >= 9 ? digitsOnly.slice(-9) : digitsOnly;
+
       const user = await this.prisma.user.findFirst({
         where: {
           OR: [
             { phone: cleanPhone },
             { phone: `+${cleanPhone}` },
-            { phone: { endsWith: cleanPhone.slice(-10) } },
+            { phone: { contains: lastDigits } },
           ],
         },
       });
@@ -145,7 +148,7 @@ export class WhatsappService {
     const userId = await this.getPrimaryUserId(from);
     let reply = '';
 
-    if (lower.startsWith('!saldo') || lower.startsWith('/saldo') || lower.startsWith('!fin') || lower.startsWith('/fin')) {
+    if (lower.startsWith('!saldo') || lower.startsWith('/saldo') || lower.startsWith('!fin') || lower.startsWith('/fin') || lower.startsWith('!overview') || lower.startsWith('/overview')) {
       reply = await this.getOverviewMessage(userId);
     } else if (lower.startsWith('!cicilan') || lower.startsWith('/cicilan')) {
       reply = await this.getActiveInstallmentsMessage(userId);
@@ -292,54 +295,146 @@ _Atau:_ \`!tambah pemasukan 5000000 | Gaji | Bonus Proyek\`
   }
 
   private async addTransactionFromWa(userId: string, text: string): Promise<string> {
+    if (!userId) {
+      return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
+    }
+
     // Format: !tambah [pengeluaran/pemasukan] [jumlah] | [kategori] | [deskripsi]
-    const content = text.replace(/^!tambah/i, '').trim();
+    const content = text.replace(/^[!/]tambah/i, '').trim();
     if (!content) {
       return `⚠️ *Format Salah!*\n\n*Format:* \`!tambah [pengeluaran/pemasukan] [jumlah] | [kategori] | [deskripsi]\`\n\n*Contoh:* \`!tambah pengeluaran 25000 | Makanan | Nasi Goreng\``;
     }
 
-    const parts = content.split('|').map((s) => s.trim());
-    const firstPart = parts[0].split(' ');
-    const typeStr = (firstPart[0] || '').toLowerCase();
-    const amountStr = firstPart[1] || '0';
-    const amount = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
+    let typeStr = '';
+    let amountStr = '0';
+    let catName = '';
+    let description = '';
 
+    const parts = content.split('|').map((s) => s.trim());
+    if (parts.length >= 2) {
+      const firstPart = parts[0].split(/\s+/);
+      typeStr = (firstPart[0] || '').toLowerCase();
+      amountStr = firstPart[1] || '0';
+
+      // If firstPart only has 1 word and it's a number (e.g. !tambah 25000 | Makanan | Nasi Goreng)
+      if (!firstPart[1] && !isNaN(parseFloat(typeStr.replace(/[^0-9.]/g, '')))) {
+        amountStr = typeStr;
+        typeStr = 'pengeluaran';
+      }
+
+      catName = parts[1] || '';
+      description = parts[2] || '';
+    } else {
+      // Space separated format without pipes
+      const tokens = content.split(/\s+/);
+      const firstTokenLower = (tokens[0] || '').toLowerCase();
+
+      if (firstTokenLower.includes('pengeluaran') || firstTokenLower.includes('pemasukan') || firstTokenLower.includes('masuk') || firstTokenLower.includes('keluar')) {
+        typeStr = firstTokenLower;
+        amountStr = tokens[1] || '0';
+        catName = tokens[2] || '';
+        description = tokens.slice(3).join(' ');
+      } else {
+        amountStr = tokens[0] || '0';
+        catName = tokens[1] || '';
+        description = tokens.slice(2).join(' ');
+      }
+    }
+
+    const amount = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
     if (isNaN(amount) || amount <= 0) {
       return `⚠️ *Jumlah Saldo Tidak Valid!*\n\n*Contoh:* \`!tambah pengeluaran 50000 | Makanan | Makan Siang\``;
     }
 
-    const type = typeStr.includes('masuk') || typeStr.includes('in') ? TransactionType.INCOME : TransactionType.EXPENSE;
-    const catName = parts[1] || (type === TransactionType.INCOME ? 'Gaji & Pendapatan Utama' : 'Makanan & Minuman');
-    const description = parts[2] || (type === TransactionType.INCOME ? 'Pemasukan WA' : 'Pengeluaran WA');
+    const type = (typeStr.includes('masuk') || typeStr.includes('in') || typeStr.includes('pemasukan'))
+      ? TransactionType.INCOME
+      : TransactionType.EXPENSE;
 
+    if (!catName) {
+      catName = type === TransactionType.INCOME ? 'Gaji & Pendapatan Utama' : 'Makanan & Minuman';
+    }
+    if (!description) {
+      description = catName;
+    }
+
+    // 1. Search category by exact/contains name matching user or system default
     let category = await this.prisma.category.findFirst({
       where: {
-        userId,
+        OR: [{ userId }, { isSystemDefault: true }],
+        type,
         name: { contains: catName, mode: 'insensitive' },
       },
     });
 
+    // 2. Search category by individual tokens (e.g. "Makanan", "Minuman", "Kopi", "Bensin", etc.)
+    if (!category && catName) {
+      const keywords = catName.split(/[\s&,/]+/).filter((k) => k.length >= 3);
+      for (const kw of keywords) {
+        category = await this.prisma.category.findFirst({
+          where: {
+            OR: [{ userId }, { isSystemDefault: true }],
+            type,
+            name: { contains: kw, mode: 'insensitive' },
+          },
+        });
+        if (category) break;
+      }
+    }
+
+    // 3. Search category without name filtering (any matching type for user or system default)
     if (!category) {
       category = await this.prisma.category.findFirst({
-        where: { userId, type },
+        where: {
+          OR: [{ userId }, { isSystemDefault: true }],
+          type,
+        },
       });
     }
 
+    // 4. Fallback to any system default category
+    if (!category) {
+      category = await this.prisma.category.findFirst({
+        where: { isSystemDefault: true },
+      });
+    }
+
+    // 5. Ultimate Fallback: Auto-create category for user if none exists
+    if (!category) {
+      category = await this.prisma.category.create({
+        data: {
+          userId,
+          name: catName || 'Umum',
+          type,
+          isSystemDefault: false,
+        },
+      });
+    }
+
+    // Find active user account
     let account = await this.prisma.account.findFirst({
       where: { userId, isArchived: false },
       orderBy: { balance: 'desc' },
     });
 
-    if (!account || !category) {
-      return `❌ *Gagal!* Akun atau Kategori belum diset di sistem.`;
+    // Auto-create default account if none exists for this user
+    if (!account) {
+      account = await this.prisma.account.create({
+        data: {
+          userId,
+          name: 'Dompet Utama',
+          type: 'BANK',
+          balance: 0,
+          color: '#EC4899',
+        },
+      });
     }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.transaction.create({
         data: {
           userId,
-          accountId: account.id,
-          categoryId: category.id,
+          accountId: account!.id,
+          categoryId: category!.id,
           type,
           amount,
           description,
@@ -348,7 +443,7 @@ _Atau:_ \`!tambah pemasukan 5000000 | Gaji | Bonus Proyek\`
 
       const change = type === TransactionType.INCOME ? amount : -amount;
       await tx.account.update({
-        where: { id: account.id },
+        where: { id: account!.id },
         data: { balance: { increment: change } },
       });
     });
@@ -361,7 +456,7 @@ ${type === TransactionType.EXPENSE ? '💸' : '💰'} *Tipe*: ${type === Transac
 📝 *Deskripsi*: ${description}
 💳 *Dompet*: ${account.name}
 
-🔗 _Lihat Transaksi:_ https://finance.eeja.fun/transactions`;
+🔗 _Lihat Transaksi:_ https://money.eeja.fun/transactions`;
   }
 
   // Automatic installment reminder checker
