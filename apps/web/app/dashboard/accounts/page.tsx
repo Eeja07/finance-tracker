@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Wallet, Building2, CreditCard, Plus, Loader2, Trash2, Edit2 } from 'lucide-react';
+import { Wallet, Building2, CreditCard, Plus, Loader2, Trash2, Edit2, TrendingUp } from 'lucide-react';
 import { accountsApi, Account } from '@/lib/api';
 import styles from './accounts.module.css';
 
@@ -12,7 +12,7 @@ export default function AccountsPage() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   
   const [newName, setNewName] = useState('');
-  const [newType, setNewType] = useState<'BANK' | 'EWALLET' | 'CASH' | 'CREDIT_CARD'>('BANK');
+  const [newType, setNewType] = useState<'BANK' | 'EWALLET' | 'CASH' | 'CREDIT_CARD' | 'INVESTMENT' | 'SECURITIES'>('BANK');
   const [newBalance, setNewBalance] = useState('');
   const [newAccountNum, setNewAccountNum] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -103,6 +103,8 @@ export default function AccountsPage() {
       case 'BANK': return Building2;
       case 'EWALLET': return Wallet;
       case 'CASH': return CreditCard;
+      case 'SECURITIES':
+      case 'INVESTMENT': return TrendingUp;
       default: return Wallet;
     }
   };
@@ -112,7 +114,7 @@ export default function AccountsPage() {
       <div className={styles.headerBanner}>
         <div>
           <h2>Dompet &amp; Akun Bank</h2>
-          <p>Kelola rekening bank, e-wallet, dan uang tunai kamu di satu tempat.</p>
+          <p>Kelola rekening bank, e-wallet, sekuritas, dan uang tunai kamu di satu tempat.</p>
         </div>
         <button onClick={openCreateModal} className={styles.addBtn}>
           <Plus size={18} />
@@ -182,15 +184,15 @@ export default function AccountsPage() {
       {isModalOpen && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
-            <h3>{editingAccount ? 'Edit Dompet / Bank' : 'Tambah Dompet / Bank Baru'}</h3>
+            <h3>{editingAccount ? 'Edit Dompet / Bank / Sekuritas' : 'Tambah Dompet / Bank / Sekuritas Baru'}</h3>
             <form onSubmit={handleSaveAccount} className={styles.form}>
               {error && <div className={styles.errorAlert}>{error}</div>}
 
               <div className={styles.formGroup}>
-                <label>Nama Akun / Bank</label>
+                <label>Nama Akun / Bank / Sekuritas</label>
                 <input
                   type="text"
-                  placeholder="Misal: Bank Mandiri / DANA"
+                  placeholder="Misal: Bank Mandiri / DANA / Stockbit"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   required
@@ -205,6 +207,8 @@ export default function AccountsPage() {
                     <option value="EWALLET">E-WALLET</option>
                     <option value="CASH">UANG TUNAI</option>
                     <option value="CREDIT_CARD">KARTU KREDIT</option>
+                    <option value="SECURITIES">SEKURITAS</option>
+                    <option value="INVESTMENT">INVESTASI</option>
                   </select>
                 </div>
 

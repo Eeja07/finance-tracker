@@ -19,6 +19,7 @@ enum AccountType {
   CASH
   CREDIT_CARD
   INVESTMENT
+  SECURITIES
 }
 
 enum TransactionType {

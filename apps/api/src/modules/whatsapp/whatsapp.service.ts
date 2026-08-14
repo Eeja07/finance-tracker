@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { InstallmentStatus, TransactionType } from '@prisma/client';
+import { InstallmentStatus, TransactionType, AccountType } from '@prisma/client';
 
 @Injectable()
 export class WhatsappService {
@@ -169,11 +169,11 @@ export class WhatsappService {
     } else if (lower.startsWith('riwayat') || lower.startsWith('transaksi') || lower.startsWith('history')) {
       reply = await this.getRecentTransactionsMessage(userId);
     } else if (lower.startsWith('hapus') || lower.startsWith('delete')) {
-      reply = await this.deleteTransactionFromWa(userId, text);
+      reply = await this.handleHapusCommand(userId, text);
     } else if (lower.startsWith('edit') || lower.startsWith('ubah')) {
-      reply = await this.editTransactionFromWa(userId, text);
+      reply = await this.handleEditCommand(userId, text);
     } else if (lower.startsWith('tambah')) {
-      reply = await this.addTransactionFromWa(userId, text);
+      reply = await this.handleTambahCommand(userId, text);
     }
 
     if (reply) {
@@ -199,13 +199,24 @@ _Contoh:_ \`!tambah pengeluaran 35000 | Makanan | Makan Siang | GoPay\`
 📋 *!riwayat* / *!transaksi*
 Lihat 10 transaksi terakhir beserta kode & nomor urut.
 
-✏️ *!edit #no [jumlah] | [kategori] | [deskripsi] | [dompet]*
+✏️ *!edit #no [tipe] [jumlah] | [kategori] | [deskripsi] | [dompet]*
 Ubah transaksi berdasarkan nomor urut di riwayat.
-_Contoh:_ \`!edit #1 40000 | Makanan | Makan Siang Komplit\`
+_Contoh:_ \`!edit #1 pengeluaran 40000 | Makanan | Makan Siang Komplit | BCA\`
+_Atau edit parsial:_ \`!edit #1 50000\` atau \`!edit #1 | | | Mandiri\`
 
 ❌ *!hapus #no* atau *!hapus [code]*
 Hapus transaksi & kembalikan saldo dompet secara otomatis.
-_Contoh:_ \`!hapus #1\`
+
+💳 *KELOLA DOMPET & KATEGORI*
+• *!tambah dompet [nama] | [tipe] | [saldo] | [norek]*
+  _Tipe: BANK, EWALLET, CASH, CREDIT_CARD, SEKURITAS, INVESTMENT_
+  _Contoh:_ \`!tambah dompet Stockbit | SEKURITAS | 5000000\`
+• *!edit dompet [nama_lama] | [nama_baru] | [tipe] | [saldo] | [norek]*
+  _Contoh:_ \`!edit dompet Stockbit | Stockbit Sekuritas | SEKURITAS | 10000000\`
+• *!hapus dompet [nama]*
+• *!tambah kategori [nama] | [pemasukan/pengeluaran]*
+• *!edit kategori [nama_lama] | [nama_baru]*
+• *!hapus kategori [nama]*
 
 💡 _Ketik salah satu perintah di atas untuk mulai._`;
   }
@@ -497,6 +508,371 @@ _Gunakan nomor urut #1-#10 atau 8 digit kode unik di atas._`;
     return category;
   }
 
+  private async handleTambahCommand(userId: string, text: string): Promise<string> {
+    const content = text.replace(/^[!/]?tambah/i, '').trim();
+    const lower = content.toLowerCase();
+    if (lower.startsWith('dompet') || lower.startsWith('akun') || lower.startsWith('rekening')) {
+      return this.addDompetFromWa(userId, content);
+    }
+    if (lower.startsWith('kategori') || lower.startsWith('cat')) {
+      return this.addKategoriFromWa(userId, content);
+    }
+    return this.addTransactionFromWa(userId, text);
+  }
+
+  private async handleEditCommand(userId: string, text: string): Promise<string> {
+    const content = text.replace(/^[!/]?(edit|ubah)/i, '').trim();
+    const lower = content.toLowerCase();
+    if (lower.startsWith('dompet') || lower.startsWith('akun') || lower.startsWith('rekening')) {
+      return this.editDompetFromWa(userId, content);
+    }
+    if (lower.startsWith('kategori') || lower.startsWith('cat')) {
+      return this.editKategoriFromWa(userId, content);
+    }
+    return this.editTransactionFromWa(userId, text);
+  }
+
+  private async handleHapusCommand(userId: string, text: string): Promise<string> {
+    const content = text.replace(/^[!/]?(hapus|delete)/i, '').trim();
+    const lower = content.toLowerCase();
+    if (lower.startsWith('dompet') || lower.startsWith('akun') || lower.startsWith('rekening')) {
+      return this.deleteDompetFromWa(userId, content);
+    }
+    if (lower.startsWith('kategori') || lower.startsWith('cat')) {
+      return this.deleteKategoriFromWa(userId, content);
+    }
+    return this.deleteTransactionFromWa(userId, text);
+  }
+
+  private parseAccountType(typeStr: string): AccountType {
+    const t = (typeStr || '').toUpperCase().trim();
+    if (t.includes('SEKURITAS') || t.includes('SECURITIES') || t.includes('SAHAM') || t.includes('EFEK')) {
+      return AccountType.SECURITIES;
+    }
+    if (t.includes('INVEST') || t.includes('REKSADANA')) {
+      return AccountType.INVESTMENT;
+    }
+    if (t.includes('EWALLET') || t.includes('E-WALLET') || t.includes('GOPAY') || t.includes('OVO') || t.includes('DANA') || t.includes('SHOPEE')) {
+      return AccountType.EWALLET;
+    }
+    if (t.includes('CASH') || t.includes('TUNAI') || t.includes('DOMPET')) {
+      return AccountType.CASH;
+    }
+    if (t.includes('KREDIT') || t.includes('CREDIT') || t.includes('CC')) {
+      return AccountType.CREDIT_CARD;
+    }
+    return AccountType.BANK;
+  }
+
+  private async addDompetFromWa(userId: string, content: string): Promise<string> {
+    if (!userId) return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
+
+    const body = content.replace(/^(dompet|akun|rekening)/i, '').trim();
+    if (!body) {
+      return `⚠️ *Format Salah!*\n\n*Format:* \`!tambah dompet [nama] | [tipe] | [saldo] | [norek]\`\n*Tipe:* BANK, EWALLET, CASH, CREDIT_CARD, SEKURITAS, INVESTMENT\n*Contoh:* \`!tambah dompet Stockbit | SEKURITAS | 5000000 | 1234567\``;
+    }
+
+    const parts = body.split('|').map((s) => s.trim());
+    const name = parts[0];
+    if (!name) return `⚠️ *Mohon sebutkan nama dompet/akun.*`;
+
+    const existing = await this.prisma.account.findFirst({
+      where: { userId, isArchived: false, name: { equals: name, mode: 'insensitive' } },
+    });
+    if (existing) {
+      return `⚠️ Dompet dengan nama *${name}* sudah ada! Gunakan nama lain atau perintah \`!edit dompet\`.`;
+    }
+
+    const type = this.parseAccountType(parts[1] || 'BANK');
+    const balance = parseFloat((parts[2] || '0').replace(/[^0-9.]/g, '')) || 0;
+    const accountNumber = parts[3] || null;
+
+    const newAcc = await this.prisma.account.create({
+      data: {
+        userId,
+        name,
+        type,
+        balance,
+        accountNumber,
+        color: '#EC4899',
+      },
+    });
+
+    return `💳 *DOMPET BERHASIL DITAMBAHKAN!*
+
+📌 *Nama*: ${newAcc.name}
+🏷️ *Tipe*: ${newAcc.type}
+💰 *Saldo*: Rp ${newAcc.balance.toLocaleString('id-ID')}
+${newAcc.accountNumber ? `🔢 *No Rekening/HP*: ${newAcc.accountNumber}` : ''}`;
+  }
+
+  private async editDompetFromWa(userId: string, content: string): Promise<string> {
+    if (!userId) return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
+
+    const body = content.replace(/^(dompet|akun|rekening)/i, '').trim();
+    if (!body) {
+      return `⚠️ *Format Salah!*\n\n*Format:* \`!edit dompet [nama_lama_atau_no] | [nama_baru] | [tipe] | [saldo] | [norek]\`\n*Contoh:* \`!edit dompet Stockbit | Stockbit Sekuritas | SEKURITAS | 10000000\``;
+    }
+
+    const parts = body.split('|').map((s) => s.trim());
+    const searchKey = parts[0];
+    if (!searchKey) return `⚠️ *Mohon sebutkan nama dompet yang ingin diubah.*`;
+
+    const accounts = await this.prisma.account.findMany({
+      where: { userId, isArchived: false },
+      orderBy: { name: 'asc' },
+    });
+
+    let targetAcc: any = null;
+    const cleanKey = searchKey.replace(/^#/, '');
+    const index = parseInt(cleanKey, 10);
+    if (!isNaN(index) && index >= 1 && index <= accounts.length) {
+      targetAcc = accounts[index - 1];
+    } else {
+      targetAcc = accounts.find((a) => a.name.toLowerCase().includes(searchKey.toLowerCase()));
+    }
+
+    if (!targetAcc) {
+      return `❌ *Dompet "${searchKey}" tidak ditemukan!* Ketik *!dompet* untuk melihat daftar dompet.`;
+    }
+
+    const newName = parts[1] || targetAcc.name;
+    const newType = parts[2] ? this.parseAccountType(parts[2]) : targetAcc.type;
+    const newBalanceStr = parts[3];
+    const newBalance = newBalanceStr ? (parseFloat(newBalanceStr.replace(/[^0-9.]/g, '')) || 0) : targetAcc.balance;
+    const newAccountNum = parts[4] !== undefined ? (parts[4] || null) : targetAcc.accountNumber;
+
+    const updatedAcc = await this.prisma.account.update({
+      where: { id: targetAcc.id },
+      data: {
+        name: newName,
+        type: newType,
+        balance: newBalance,
+        accountNumber: newAccountNum,
+      },
+    });
+
+    return `✏️ *DOMPET BERHASIL DIPERBARUI!*
+
+📌 *Nama*: ${updatedAcc.name}
+🏷️ *Tipe*: ${updatedAcc.type}
+💰 *Saldo*: Rp ${updatedAcc.balance.toLocaleString('id-ID')}
+${updatedAcc.accountNumber ? `🔢 *No Rekening/HP*: ${updatedAcc.accountNumber}` : ''}`;
+  }
+
+  private async deleteDompetFromWa(userId: string, content: string): Promise<string> {
+    if (!userId) return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
+
+    const searchKey = content.replace(/^(dompet|akun|rekening)/i, '').trim();
+    if (!searchKey) {
+      return `⚠️ *Format Salah!*\n\n*Format:* \`!hapus dompet [nama_atau_no]\`\n*Contoh:* \`!hapus dompet Stockbit\``;
+    }
+
+    const accounts = await this.prisma.account.findMany({
+      where: { userId, isArchived: false },
+      orderBy: { name: 'asc' },
+    });
+
+    let targetAcc: any = null;
+    const cleanKey = searchKey.replace(/^#/, '');
+    const index = parseInt(cleanKey, 10);
+    if (!isNaN(index) && index >= 1 && index <= accounts.length) {
+      targetAcc = accounts[index - 1];
+    } else {
+      targetAcc = accounts.find((a) => a.name.toLowerCase().includes(searchKey.toLowerCase()));
+    }
+
+    if (!targetAcc) {
+      return `❌ *Dompet "${searchKey}" tidak ditemukan!* Ketik *!dompet* untuk melihat daftar dompet.`;
+    }
+
+    await this.prisma.account.update({
+      where: { id: targetAcc.id },
+      data: { isArchived: true },
+    });
+
+    return `🗑️ *DOMPET BERHASIL DIHAPUS!*
+
+📌 *Nama*: ${targetAcc.name}
+🏷️ *Tipe*: ${targetAcc.type}
+💰 *Saldo Terakhir*: Rp ${targetAcc.balance.toLocaleString('id-ID')}`;
+  }
+
+  private async addKategoriFromWa(userId: string, content: string): Promise<string> {
+    if (!userId) return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
+
+    const body = content.replace(/^(kategori|cat)/i, '').trim();
+    if (!body) {
+      return `⚠️ *Format Salah!*\n\n*Format:* \`!tambah kategori [nama] | [pemasukan/pengeluaran]\`\n*Contoh:* \`!tambah kategori Investasi | pengeluaran\``;
+    }
+
+    const parts = body.split('|').map((s) => s.trim());
+    const name = parts[0];
+    if (!name) return `⚠️ *Mohon sebutkan nama kategori.*`;
+
+    const typeStr = (parts[1] || '').toLowerCase();
+    const type = (typeStr.includes('masuk') || typeStr.includes('in') || typeStr.includes('pemasukan'))
+      ? TransactionType.INCOME
+      : TransactionType.EXPENSE;
+
+    const category = await this.prisma.category.create({
+      data: {
+        userId,
+        name,
+        type,
+        isSystemDefault: false,
+      },
+    });
+
+    return `🏷️ *KATEGORI BERHASIL DITAMBAHKAN!*
+
+📌 *Nama*: ${category.name}
+🏷️ *Tipe*: ${category.type === TransactionType.EXPENSE ? 'Pengeluaran' : 'Pemasukan'}`;
+  }
+
+  private async editKategoriFromWa(userId: string, content: string): Promise<string> {
+    if (!userId) return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
+
+    const body = content.replace(/^(kategori|cat)/i, '').trim();
+    if (!body) {
+      return `⚠️ *Format Salah!*\n\n*Format:* \`!edit kategori [nama_lama] | [nama_baru] | [pemasukan/pengeluaran]\`\n*Contoh:* \`!edit kategori Investasi | Investasi Saham\``;
+    }
+
+    const parts = body.split('|').map((s) => s.trim());
+    const searchKey = parts[0];
+    if (!searchKey) return `⚠️ *Mohon sebutkan nama kategori yang ingin diubah.*`;
+
+    const category = await this.prisma.category.findFirst({
+      where: {
+        OR: [{ userId }, { isSystemDefault: true }],
+        name: { contains: searchKey, mode: 'insensitive' },
+      },
+    });
+
+    if (!category) return `❌ *Kategori "${searchKey}" tidak ditemukan!* Ketik *!kategori* untuk melihat daftar.`;
+
+    const newName = parts[1] || category.name;
+    let newType = category.type;
+    if (parts[2]) {
+      const tStr = parts[2].toLowerCase();
+      newType = (tStr.includes('masuk') || tStr.includes('in') || tStr.includes('pemasukan'))
+        ? TransactionType.INCOME
+        : TransactionType.EXPENSE;
+    }
+
+    const updated = await this.prisma.category.update({
+      where: { id: category.id },
+      data: { name: newName, type: newType },
+    });
+
+    return `✏️ *KATEGORI BERHASIL DIPERBARUI!*
+
+📌 *Nama*: ${updated.name}
+🏷️ *Tipe*: ${updated.type === TransactionType.EXPENSE ? 'Pengeluaran' : 'Pemasukan'}`;
+  }
+
+  private async deleteKategoriFromWa(userId: string, content: string): Promise<string> {
+    if (!userId) return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
+
+    const searchKey = content.replace(/^(kategori|cat)/i, '').trim();
+    if (!searchKey) {
+      return `⚠️ *Format Salah!*\n\n*Format:* \`!hapus kategori [nama]\`\n*Contoh:* \`!hapus kategori Investasi\``;
+    }
+
+    const category = await this.prisma.category.findFirst({
+      where: {
+        userId,
+        name: { contains: searchKey, mode: 'insensitive' },
+      },
+    });
+
+    if (!category) return `❌ *Kategori "${searchKey}" tidak ditemukan atau milik sistem!*`;
+
+    await this.prisma.category.delete({
+      where: { id: category.id },
+    });
+
+    return `🗑️ *KATEGORI BERHASIL DIHAPUS!*
+
+📌 *Nama*: ${category.name}`;
+  }
+
+  private parseTransactionFields(content: string, existingTx?: any) {
+    let typeStr = '';
+    let amountStr = '';
+    let catName = '';
+    let description = '';
+    let accountName = '';
+
+    const parts = content.split('|').map((s) => s.trim());
+    if (parts.length >= 2) {
+      const firstPart = parts[0].split(/\s+/).filter(Boolean);
+      if (firstPart.length >= 2) {
+        typeStr = firstPart[0].toLowerCase();
+        amountStr = firstPart[1];
+      } else if (firstPart.length === 1) {
+        const token = firstPart[0].toLowerCase();
+        if (token.includes('pengeluaran') || token.includes('pemasukan') || token.includes('masuk') || token.includes('keluar') || token === 'in' || token === 'out') {
+          typeStr = token;
+        } else {
+          amountStr = token;
+        }
+      }
+
+      catName = parts[1] || '';
+      description = parts[2] || '';
+      accountName = parts[3] || '';
+    } else {
+      const tokens = content.split(/\s+/).filter(Boolean);
+      if (tokens.length > 0) {
+        const firstTokenLower = tokens[0].toLowerCase();
+        if (firstTokenLower.includes('pengeluaran') || firstTokenLower.includes('pemasukan') || firstTokenLower.includes('masuk') || firstTokenLower.includes('keluar') || firstTokenLower === 'in' || firstTokenLower === 'out') {
+          typeStr = firstTokenLower;
+          amountStr = tokens[1] || '';
+          catName = tokens[2] || '';
+          description = tokens.slice(3).join(' ');
+        } else if (!isNaN(parseFloat(firstTokenLower.replace(/[^0-9.]/g, '')))) {
+          amountStr = tokens[0];
+          catName = tokens[1] || '';
+          description = tokens.slice(2).join(' ');
+        } else {
+          catName = tokens[0] || '';
+          description = tokens.slice(1).join(' ');
+        }
+      }
+    }
+
+    let parsedAmount: number | undefined;
+    if (amountStr) {
+      const val = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
+      if (!isNaN(val) && val > 0) {
+        parsedAmount = val;
+      }
+    }
+
+    let parsedType: TransactionType | undefined;
+    if (typeStr) {
+      if (typeStr.includes('masuk') || typeStr.includes('in') || typeStr.includes('pemasukan')) {
+        parsedType = TransactionType.INCOME;
+      } else if (typeStr.includes('keluar') || typeStr.includes('out') || typeStr.includes('pengeluaran')) {
+        parsedType = TransactionType.EXPENSE;
+      }
+    }
+
+    return {
+      type: parsedType ?? existingTx?.type ?? TransactionType.EXPENSE,
+      amount: parsedAmount ?? existingTx?.amount ?? 0,
+      catName: catName || (existingTx ? existingTx.category?.name || 'Umum' : ''),
+      description: description || (existingTx ? existingTx.description || '' : ''),
+      accountName: accountName || (existingTx ? existingTx.account?.name || '' : ''),
+      hasAmount: parsedAmount !== undefined,
+      hasType: parsedType !== undefined,
+      hasCatName: !!catName,
+      hasDescription: !!description,
+      hasAccountName: !!accountName,
+    };
+  }
+
   private async deleteTransactionFromWa(userId: string, text: string): Promise<string> {
     if (!userId) {
       return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
@@ -543,7 +919,7 @@ _Gunakan nomor urut #1-#10 atau 8 digit kode unik di atas._`;
     if (!body) {
       return `⚠️ *Format Salah!*
 
-*Format:* \`!edit #no_atau_id [jumlah/tipe_jumlah] | [kategori] | [deskripsi] | [dompet]\`
+*Format:* \`!edit #no_atau_id [tipe] [jumlah] | [kategori] | [deskripsi] | [dompet]\`
 *Contoh:* \`!edit #1 45000 | Makanan & Minuman | Makan Siang Lengkap\`
 *Contoh 2:* \`!edit #1 pengeluaran 50000 | Makanan | Bakso | GoPay\`
 
@@ -563,53 +939,13 @@ _Gunakan nomor urut #1-#10 atau 8 digit kode unik di atas._`;
       return `❌ *Transaksi tidak ditemukan!*\n\nSilakan cek nomor transaksi melalui perintah *!riwayat*.`;
     }
 
-    let typeStr = '';
-    let amountStr = '0';
-    let catName = '';
-    let description = '';
-    let accountName = '';
+    const parsed = this.parseTransactionFields(content, existingTx);
 
-    const parts = content.split('|').map((s) => s.trim());
-    if (parts.length >= 2) {
-      const firstPart = parts[0].split(/\s+/);
-      typeStr = (firstPart[0] || '').toLowerCase();
-      amountStr = firstPart[1] || '0';
-
-      if (!firstPart[1] && !isNaN(parseFloat(typeStr.replace(/[^0-9.]/g, '')))) {
-        amountStr = typeStr;
-        typeStr = existingTx.type === TransactionType.INCOME ? 'pemasukan' : 'pengeluaran';
-      }
-
-      catName = parts[1] || '';
-      description = parts[2] || '';
-      accountName = parts[3] || '';
-    } else {
-      const tokens = content.split(/\s+/);
-      const firstTokenLower = (tokens[0] || '').toLowerCase();
-
-      if (firstTokenLower.includes('pengeluaran') || firstTokenLower.includes('pemasukan') || firstTokenLower.includes('masuk') || firstTokenLower.includes('keluar')) {
-        typeStr = firstTokenLower;
-        amountStr = tokens[1] || '0';
-        catName = tokens[2] || '';
-        description = tokens.slice(3).join(' ');
-      } else {
-        amountStr = tokens[0] || '0';
-        catName = tokens[1] || '';
-        description = tokens.slice(2).join(' ');
-      }
-    }
-
-    let amount = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
-    if (isNaN(amount) || amount <= 0) {
-      amount = existingTx.amount;
-    }
-
-    const type = typeStr ? ((typeStr.includes('masuk') || typeStr.includes('in') || typeStr.includes('pemasukan'))
-      ? TransactionType.INCOME
-      : TransactionType.EXPENSE) : existingTx.type;
-
-    if (!catName) catName = existingTx.category?.name || 'Umum';
-    if (!description) description = existingTx.description || catName;
+    const type = parsed.type;
+    const amount = parsed.amount > 0 ? parsed.amount : existingTx.amount;
+    const catName = parsed.catName || existingTx.category?.name || 'Umum';
+    const description = parsed.description || existingTx.description || catName;
+    const accountName = parsed.accountName;
 
     const category = await this.resolveCategory(userId, type, catName);
 
@@ -676,60 +1012,24 @@ ${type === TransactionType.EXPENSE ? '💸' : '💰'} *Tipe*: ${type === Transac
       return `❌ *Gagal!* Pengguna belum terdaftar di sistem.`;
     }
 
-    // Format: !tambah [pengeluaran/pemasukan] [jumlah] | [kategori] | [deskripsi] | [dompet]
     const content = text.replace(/^[!/]?tambah/i, '').trim();
     if (!content) {
       return `⚠️ *Format Salah!*\n\n*Format:* \`!tambah [pengeluaran/pemasukan] [jumlah] | [kategori] | [deskripsi] | [dompet]\`\n\n*Contoh:* \`!tambah pengeluaran 25000 | Makanan | Nasi Goreng | GoPay\``;
     }
 
-    let typeStr = '';
-    let amountStr = '0';
-    let catName = '';
-    let description = '';
-    let accountName = '';
+    const parsed = this.parseTransactionFields(content);
 
-    const parts = content.split('|').map((s) => s.trim());
-    if (parts.length >= 2) {
-      const firstPart = parts[0].split(/\s+/);
-      typeStr = (firstPart[0] || '').toLowerCase();
-      amountStr = firstPart[1] || '0';
-
-      if (!firstPart[1] && !isNaN(parseFloat(typeStr.replace(/[^0-9.]/g, '')))) {
-        amountStr = typeStr;
-        typeStr = 'pengeluaran';
-      }
-
-      catName = parts[1] || '';
-      description = parts[2] || '';
-      accountName = parts[3] || '';
-    } else {
-      const tokens = content.split(/\s+/);
-      const firstTokenLower = (tokens[0] || '').toLowerCase();
-
-      if (firstTokenLower.includes('pengeluaran') || firstTokenLower.includes('pemasukan') || firstTokenLower.includes('masuk') || firstTokenLower.includes('keluar')) {
-        typeStr = firstTokenLower;
-        amountStr = tokens[1] || '0';
-        catName = tokens[2] || '';
-        description = tokens.slice(3).join(' ');
-      } else {
-        amountStr = tokens[0] || '0';
-        catName = tokens[1] || '';
-        description = tokens.slice(2).join(' ');
-      }
-    }
-
-    const amount = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
-    if (isNaN(amount) || amount <= 0) {
+    const type = parsed.type;
+    const amount = parsed.amount;
+    if (amount <= 0) {
       return `⚠️ *Jumlah Saldo Tidak Valid!*\n\n*Contoh:* \`!tambah pengeluaran 50000 | Makanan | Makan Siang\``;
     }
 
-    const type = (typeStr.includes('masuk') || typeStr.includes('in') || typeStr.includes('pemasukan'))
-      ? TransactionType.INCOME
-      : TransactionType.EXPENSE;
-
+    let catName = parsed.catName;
     if (!catName) {
       catName = type === TransactionType.INCOME ? 'Gaji & Pendapatan Utama' : 'Makanan & Minuman';
     }
+    let description = parsed.description;
     if (!description) {
       description = catName;
     }
@@ -737,12 +1037,12 @@ ${type === TransactionType.EXPENSE ? '💸' : '💰'} *Tipe*: ${type === Transac
     const category = await this.resolveCategory(userId, type, catName);
 
     let account: any = null;
-    if (accountName) {
+    if (parsed.accountName) {
       account = await this.prisma.account.findFirst({
         where: {
           userId,
           isArchived: false,
-          name: { contains: accountName, mode: 'insensitive' },
+          name: { contains: parsed.accountName, mode: 'insensitive' },
         },
       });
     }

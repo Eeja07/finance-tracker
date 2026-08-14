@@ -23,7 +23,7 @@ export interface WhatsappStatus {
 export interface Account {
   id: string;
   name: string;
-  type: 'BANK' | 'EWALLET' | 'CASH' | 'CREDIT_CARD' | 'INVESTMENT';
+  type: 'BANK' | 'EWALLET' | 'CASH' | 'CREDIT_CARD' | 'INVESTMENT' | 'SECURITIES';
   accountNumber?: string;
   balance: number;
   color: string;
