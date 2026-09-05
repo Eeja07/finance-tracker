@@ -68,6 +68,7 @@ export class TransactionsController {
       date?: string;
       receiptUrl?: string;
       itemImageUrl?: string;
+      installmentPaymentId?: string;
     },
   ) {
     return this.transactionsService.create(req.user.id, body);
@@ -89,6 +90,7 @@ export class TransactionsController {
       date?: string;
       receiptUrl?: string;
       itemImageUrl?: string;
+      installmentPaymentId?: string;
     }>,
   ) {
     return this.transactionsService.update(req.user.id, id, body);

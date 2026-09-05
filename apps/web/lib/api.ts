@@ -47,6 +47,7 @@ export interface Transaction {
   userId: string;
   accountId: string;
   categoryId: string;
+  installmentPaymentId?: string;
   type: 'INCOME' | 'EXPENSE' | 'TRANSFER';
   amount: number;
   date: string;
@@ -57,6 +58,14 @@ export interface Transaction {
   itemImageUrl?: string;
   account?: Account;
   category?: Category;
+  installmentPayment?: InstallmentPayment & {
+    installment?: {
+      id: string;
+      title: string;
+      provider: string;
+      totalTenorMonths: number;
+    };
+  };
   createdAt: string;
 }
 
@@ -83,6 +92,7 @@ export interface Installment {
   interestRate: number;
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   notes?: string;
+  accountId?: string;
   account?: Account;
   payments?: InstallmentPayment[];
   createdAt: string;
@@ -260,9 +270,9 @@ export const transactionsApi = {
     return request<DashboardSummary>(`/transactions/summary${qs ? `?${qs}` : ''}`);
   },
   getDaily: (date?: string) => request<DailyExpenseSummary>(`/transactions/daily${date ? `?date=${date}` : ''}`),
-  create: (body: { accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string }) =>
+  create: (body: { accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string; installmentPaymentId?: string }) =>
     request<Transaction>('/transactions', { method: 'POST', body: JSON.stringify(body) }),
-  update: (id: string, body: Partial<{ accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string }>) =>
+  update: (id: string, body: Partial<{ accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string; installmentPaymentId?: string }>) =>
     request<Transaction>(`/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (id: string) => request<Transaction>(`/transactions/${id}`, { method: 'DELETE' }),
 };

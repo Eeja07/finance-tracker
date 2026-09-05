@@ -21,8 +21,18 @@ import {
   Camera,
   FileText,
   Image as ImageIcon,
+  CreditCard,
 } from 'lucide-react';
-import { transactionsApi, accountsApi, categoriesApi, Transaction, Account, Category } from '@/lib/api';
+import {
+  transactionsApi,
+  accountsApi,
+  categoriesApi,
+  installmentsApi,
+  Transaction,
+  Account,
+  Category,
+  Installment,
+} from '@/lib/api';
 import styles from './transactions.module.css';
 
 interface TransactionItemInput {
@@ -68,21 +78,28 @@ export default function TransactionsPage() {
     { name: '', qty: 1, price: 0 },
   ]);
 
+  // Installment payment integration feature
+  const [activeInstallments, setActiveInstallments] = useState<Installment[]>([]);
+  const [isPayingInstallment, setIsPayingInstallment] = useState(false);
+  const [selectedInstallmentPaymentId, setSelectedInstallmentPaymentId] = useState('');
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const loadAllData = async () => {
     try {
       setLoading(true);
-      const [txRes, accRes, catRes] = await Promise.all([
+      const [txRes, accRes, catRes, instRes] = await Promise.all([
         transactionsApi.list({ limit: 100 }),
         accountsApi.list(),
         categoriesApi.list(),
+        installmentsApi.list('ACTIVE').catch(() => [] as Installment[]),
       ]);
 
       setTransactions(txRes.items || []);
       setAccounts(accRes || []);
       setCategories(catRes || []);
+      setActiveInstallments(instRes || []);
 
       if (catRes && catRes.length > 0) {
         const firstMatchingCat = catRes.find((c) => c.type === newType) || catRes[0];
@@ -251,6 +268,39 @@ export default function TransactionsPage() {
     setItemImage(null);
     setIsMultiItem(false);
     setItemList([{ name: '', qty: 1, price: 0 }]);
+    setIsPayingInstallment(false);
+    setSelectedInstallmentPaymentId('');
+  };
+
+  const handleSelectInstallmentPayment = (paymentId: string) => {
+    setSelectedInstallmentPaymentId(paymentId);
+    if (!paymentId) return;
+
+    for (const inst of activeInstallments) {
+      const payment = inst.payments?.find((p) => p.id === paymentId);
+      if (payment) {
+        setNewAmount(String(payment.amount));
+        setNewDesc(`Pembayaran ${inst.title} (Bulan Ke-${payment.tenorNumber}/${inst.totalTenorMonths})`);
+        if (inst.provider) {
+          setRecipientOrPayer(inst.provider);
+        }
+        if (inst.accountId && accounts.some((a) => a.id === inst.accountId)) {
+          setSelectedAccountId(inst.accountId);
+        }
+        const cicilanCat = categories.find(
+          (c) =>
+            c.type === 'EXPENSE' &&
+            (c.name.toLowerCase().includes('cicilan') ||
+              c.name.toLowerCase().includes('pinjaman') ||
+              c.name.toLowerCase().includes('angsuran') ||
+              c.name.toLowerCase().includes('tagihan'))
+        );
+        if (cicilanCat) {
+          setSelectedCategoryId(cicilanCat.id);
+        }
+        break;
+      }
+    }
   };
 
   const openCreateModal = () => {
@@ -274,6 +324,13 @@ export default function TransactionsPage() {
     setItemImage(t.itemImageUrl || null);
     setIsMultiItem(false);
     setItemList([{ name: '', qty: 1, price: 0 }]);
+    if (t.installmentPaymentId) {
+      setIsPayingInstallment(true);
+      setSelectedInstallmentPaymentId(t.installmentPaymentId);
+    } else {
+      setIsPayingInstallment(false);
+      setSelectedInstallmentPaymentId('');
+    }
     setIsModalOpen(true);
   };
 
@@ -304,6 +361,11 @@ export default function TransactionsPage() {
     setSubmitting(true);
 
     try {
+      const payloadInstallmentId =
+        newType === 'EXPENSE' && isPayingInstallment && selectedInstallmentPaymentId
+          ? selectedInstallmentPaymentId
+          : undefined;
+
       if (editingTransaction) {
         await transactionsApi.update(editingTransaction.id, {
           accountId: selectedAccountId,
@@ -316,6 +378,7 @@ export default function TransactionsPage() {
           date: txDate,
           receiptUrl: receiptImage || undefined,
           itemImageUrl: newType === 'EXPENSE' ? (itemImage || undefined) : undefined,
+          installmentPaymentId: payloadInstallmentId,
         });
       } else {
         await transactionsApi.create({
@@ -329,6 +392,7 @@ export default function TransactionsPage() {
           date: txDate,
           receiptUrl: receiptImage || undefined,
           itemImageUrl: newType === 'EXPENSE' ? (itemImage || undefined) : undefined,
+          installmentPaymentId: payloadInstallmentId,
         });
       }
 
@@ -477,6 +541,20 @@ export default function TransactionsPage() {
                                     Penerima/Pemberi: {t.recipientOrPayer}
                                   </span>
                                 )}
+
+                                {t.installmentPayment && (
+                                  <div>
+                                    <span
+                                      className={styles.txInstallmentBadge}
+                                      title={`Membayar cicilan ${t.installmentPayment.installment?.title || ''}`}
+                                    >
+                                      <CreditCard size={11} />
+                                      <span>
+                                        Cicilan: {t.installmentPayment.installment?.title || 'Cicilan'} (Bulan Ke-{t.installmentPayment.tenorNumber}{t.installmentPayment.installment?.totalTenorMonths ? `/${t.installmentPayment.installment.totalTenorMonths}` : ''})
+                                      </span>
+                                    </span>
+                                  </div>
+                                )}
                                 
                                 {/* Photo preview badges */}
                                 {(t.receiptUrl || t.itemImageUrl) && (
@@ -574,7 +652,22 @@ export default function TransactionsPage() {
                         <div className={t.type === 'INCOME' ? styles.incomeBadge : styles.expenseBadge}>
                           {t.type === 'INCOME' ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
                         </div>
-                        <span className={styles.mobileTitle}>{t.description}</span>
+                        <div>
+                          <span className={styles.mobileTitle}>{t.description}</span>
+                          {t.installmentPayment && (
+                            <div style={{ marginTop: '3px' }}>
+                              <span
+                                className={styles.txInstallmentBadge}
+                                title={`Membayar cicilan ${t.installmentPayment.installment?.title || ''}`}
+                              >
+                                <CreditCard size={11} />
+                                <span>
+                                  Cicilan: {t.installmentPayment.installment?.title || 'Cicilan'} (Bulan Ke-{t.installmentPayment.tenorNumber}{t.installmentPayment.installment?.totalTenorMonths ? `/${t.installmentPayment.installment.totalTenorMonths}` : ''})
+                                </span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
                         <button onClick={() => openEditModal(t)} className={styles.deleteBtn} aria-label="Edit transaksi" title="Edit Transaksi">
@@ -677,6 +770,8 @@ export default function TransactionsPage() {
                     onClick={() => {
                       setNewType('INCOME');
                       setIsMultiItem(false);
+                      setIsPayingInstallment(false);
+                      setSelectedInstallmentPaymentId('');
                       setItemImage(null);
                     }}
                     className={`${styles.typeBtn} ${newType === 'INCOME' ? styles.activeIncome : ''}`}
@@ -710,6 +805,77 @@ export default function TransactionsPage() {
                 />
               </div>
 
+              {/* Opsi Membayar Cicilan - HANYA UNTUK PENGELUARAN */}
+              {newType === 'EXPENSE' && (
+                <div className={styles.installmentToggleContainer}>
+                  <label className={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={isPayingInstallment}
+                      disabled={isMultiItem}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setIsPayingInstallment(checked);
+                        if (!checked) {
+                          setSelectedInstallmentPaymentId('');
+                        } else {
+                          setIsMultiItem(false);
+                        }
+                      }}
+                      className={styles.checkboxInput}
+                    />
+                    <CreditCard size={16} className={styles.toggleIcon} />
+                    <span>Membayar Tagihan Cicilan Aktif</span>
+                  </label>
+
+                  {isPayingInstallment && (
+                    <div className={styles.installmentSelectBox}>
+                      <label className={styles.installmentSelectLabel}>Pilih Cicilan &amp; Bulan Tagihan:</label>
+                      <select
+                        value={selectedInstallmentPaymentId}
+                        onChange={(e) => handleSelectInstallmentPayment(e.target.value)}
+                        className={styles.installmentDropdown}
+                        required={isPayingInstallment}
+                      >
+                        <option value="">-- Pilih Cicilan &amp; Bulan Tagihan --</option>
+                        {activeInstallments.map((inst) => {
+                          const pendingPayments = (inst.payments || []).filter(
+                            (p) => p.status !== 'PAID' || p.id === selectedInstallmentPaymentId
+                          );
+                          if (pendingPayments.length === 0) return null;
+                          return (
+                            <optgroup key={inst.id} label={`${inst.title} (${inst.provider})`}>
+                              {pendingPayments.map((p) => {
+                                const dueFormatted = new Date(p.dueDate).toLocaleDateString('id-ID', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                });
+                                return (
+                                  <option key={p.id} value={p.id}>
+                                    Bulan Ke-{p.tenorNumber} dari {inst.totalTenorMonths} — Jatuh Tempo: {dueFormatted} — Rp {p.amount.toLocaleString('id-ID')} {p.status === 'PAID' ? '(Terbayar)' : ''}
+                                  </option>
+                                );
+                              })}
+                            </optgroup>
+                          );
+                        })}
+                      </select>
+                      {activeInstallments.length === 0 && (
+                        <span className={styles.installmentHelpText} style={{ color: 'var(--text-muted)' }}>
+                          Belum ada cicilan aktif yang tercatat. Tambahkan di menu Cicilan terlebih dahulu.
+                        </span>
+                      )}
+                      {selectedInstallmentPaymentId && (
+                        <span className={styles.installmentHelpText}>
+                          ✓ Otomatis mengisi nominal, judul, provider, dan dompet. Setelah disimpan, status di menu Cicilan otomatis berubah menjadi Terbayar (Lunas).
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Multi-Item Toggle Checkbox Option - ONLY AVAILABLE FOR EXPENSES */}
               {newType === 'EXPENSE' && (
                 <div className={styles.multiItemToggleContainer}>
@@ -717,10 +883,13 @@ export default function TransactionsPage() {
                     <input
                       type="checkbox"
                       checked={isMultiItem}
+                      disabled={isPayingInstallment}
                       onChange={(e) => {
                         const checked = e.target.checked;
                         setIsMultiItem(checked);
                         if (checked) {
+                          setIsPayingInstallment(false);
+                          setSelectedInstallmentPaymentId('');
                           const total = itemList.reduce((acc, it) => acc + ((Number(it.qty) || 1) * (Number(it.price) || 0)), 0);
                           setNewAmount(total > 0 ? String(total) : '');
                         }

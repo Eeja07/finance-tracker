@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma, TransactionType } from '@prisma/client';
+import { Prisma, TransactionType, PaymentStatus, InstallmentStatus } from '@prisma/client';
 
 @Injectable()
 export class TransactionsService {
@@ -37,7 +37,6 @@ export class TransactionsService {
         {
           OR: [
             {
-              installmentPaymentId: null,
               date: dateRange,
             },
             {
@@ -59,7 +58,23 @@ export class TransactionsService {
         include: {
           account: { select: { id: true, name: true, color: true, type: true } },
           category: { select: { id: true, name: true, color: true, icon: true } },
-          installmentPayment: { select: { id: true, dueDate: true, paidDate: true, tenorNumber: true } },
+          installmentPayment: {
+            select: {
+              id: true,
+              dueDate: true,
+              paidDate: true,
+              tenorNumber: true,
+              status: true,
+              installment: {
+                select: {
+                  id: true,
+                  title: true,
+                  provider: true,
+                  totalTenorMonths: true,
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.transaction.count({ where }),
@@ -80,6 +95,11 @@ export class TransactionsService {
       include: {
         account: true,
         category: true,
+        installmentPayment: {
+          include: {
+            installment: true,
+          },
+        },
       },
     });
     if (!tx) throw new NotFoundException('Transaction not found');
@@ -99,6 +119,7 @@ export class TransactionsService {
       date?: string | Date;
       receiptUrl?: string;
       itemImageUrl?: string;
+      installmentPaymentId?: string;
     },
   ) {
     if (data.amount <= 0) {
@@ -109,6 +130,20 @@ export class TransactionsService {
       where: { id: data.accountId, userId },
     });
     if (!account) throw new NotFoundException('Akun / Dompet tidak ditemukan');
+
+    let payment: any = null;
+    if (data.installmentPaymentId) {
+      payment = await this.prisma.installmentPayment.findFirst({
+        where: { id: data.installmentPaymentId },
+        include: { installment: true },
+      });
+      if (!payment || payment.installment.userId !== userId) {
+        throw new NotFoundException('Tagihan cicilan tidak ditemukan');
+      }
+      if (payment.status === PaymentStatus.PAID) {
+        throw new BadRequestException('Tagihan cicilan ini sudah berstatus lunas');
+      }
+    }
 
     const txDate = data.date ? new Date(data.date) : new Date();
 
@@ -126,10 +161,16 @@ export class TransactionsService {
           date: txDate,
           receiptUrl: data.receiptUrl,
           itemImageUrl: data.itemImageUrl,
+          installmentPaymentId: data.installmentPaymentId || null,
         },
         include: {
           account: true,
           category: true,
+          installmentPayment: {
+            include: {
+              installment: true,
+            },
+          },
         },
       });
 
@@ -139,6 +180,33 @@ export class TransactionsService {
         where: { id: data.accountId },
         data: { balance: { increment: balanceChange } },
       });
+
+      // If linked to installment payment, mark it as PAID and update installment
+      if (data.installmentPaymentId && payment) {
+        await tx.installmentPayment.update({
+          where: { id: data.installmentPaymentId },
+          data: {
+            amount: data.amount,
+            status: PaymentStatus.PAID,
+            paidDate: txDate,
+          },
+        });
+
+        const remainingPending = await tx.installmentPayment.count({
+          where: {
+            installmentId: payment.installmentId,
+            status: { not: PaymentStatus.PAID },
+          },
+        });
+
+        await tx.installment.update({
+          where: { id: payment.installmentId },
+          data: {
+            remainingTenorMonths: remainingPending,
+            status: remainingPending === 0 ? InstallmentStatus.COMPLETED : InstallmentStatus.ACTIVE,
+          },
+        });
+      }
 
       return createdTx;
     });
@@ -158,6 +226,7 @@ export class TransactionsService {
       date?: string | Date;
       receiptUrl?: string;
       itemImageUrl?: string;
+      installmentPaymentId?: string;
     }>,
   ) {
     const existing = await this.findOne(userId, id);
@@ -192,10 +261,16 @@ export class TransactionsService {
           ...(data.date ? { date: new Date(data.date) } : {}),
           ...(data.receiptUrl !== undefined ? { receiptUrl: data.receiptUrl } : {}),
           ...(data.itemImageUrl !== undefined ? { itemImageUrl: data.itemImageUrl } : {}),
+          ...(data.installmentPaymentId !== undefined ? { installmentPaymentId: data.installmentPaymentId } : {}),
         },
         include: {
           account: true,
           category: true,
+          installmentPayment: {
+            include: {
+              installment: true,
+            },
+          },
         },
       });
 
@@ -206,6 +281,59 @@ export class TransactionsService {
         data: { balance: { increment: newApplyImpact } },
       });
 
+      // 4. Synchronize installment payment status if changed
+      if (data.installmentPaymentId !== undefined && data.installmentPaymentId !== existing.installmentPaymentId) {
+        if (existing.installmentPaymentId) {
+          const oldPayment = await tx.installmentPayment.findUnique({
+            where: { id: existing.installmentPaymentId },
+          });
+          if (oldPayment) {
+            await tx.installmentPayment.update({
+              where: { id: existing.installmentPaymentId },
+              data: { status: PaymentStatus.PENDING, paidDate: null },
+            });
+            const remaining = await tx.installmentPayment.count({
+              where: { installmentId: oldPayment.installmentId, status: { not: PaymentStatus.PAID } },
+            });
+            await tx.installment.update({
+              where: { id: oldPayment.installmentId },
+              data: {
+                remainingTenorMonths: remaining,
+                status: InstallmentStatus.ACTIVE,
+              },
+            });
+          }
+        }
+
+        if (data.installmentPaymentId) {
+          const newPayment = await tx.installmentPayment.findFirst({
+            where: { id: data.installmentPaymentId },
+            include: { installment: true },
+          });
+          if (!newPayment || newPayment.installment.userId !== userId) {
+            throw new NotFoundException('Tagihan cicilan tidak ditemukan');
+          }
+          await tx.installmentPayment.update({
+            where: { id: data.installmentPaymentId },
+            data: {
+              status: PaymentStatus.PAID,
+              paidDate: data.date ? new Date(data.date) : existing.date,
+              amount: newAmount,
+            },
+          });
+          const remaining = await tx.installmentPayment.count({
+            where: { installmentId: newPayment.installmentId, status: { not: PaymentStatus.PAID } },
+          });
+          await tx.installment.update({
+            where: { id: newPayment.installmentId },
+            data: {
+              remainingTenorMonths: remaining,
+              status: remaining === 0 ? InstallmentStatus.COMPLETED : InstallmentStatus.ACTIVE,
+            },
+          });
+        }
+      }
+
       return updatedTx;
     });
   }
@@ -214,12 +342,45 @@ export class TransactionsService {
     const existing = await this.findOne(userId, id);
 
     return this.prisma.$transaction(async (tx) => {
-      // Revert account balance
+      // 1. Revert account balance
       const balanceChange = existing.type === TransactionType.INCOME ? -existing.amount : existing.amount;
       await tx.account.update({
         where: { id: existing.accountId },
         data: { balance: { increment: balanceChange } },
       });
+
+      // 2. If this transaction is linked to an installment payment, revert installment payment & remaining tenor
+      if (existing.installmentPaymentId) {
+        const payment = await tx.installmentPayment.findUnique({
+          where: { id: existing.installmentPaymentId },
+          include: { installment: true },
+        });
+
+        if (payment) {
+          await tx.installmentPayment.update({
+            where: { id: existing.installmentPaymentId },
+            data: {
+              status: PaymentStatus.PENDING,
+              paidDate: null,
+            },
+          });
+
+          const remainingPending = await tx.installmentPayment.count({
+            where: {
+              installmentId: payment.installmentId,
+              status: { not: PaymentStatus.PAID },
+            },
+          });
+
+          await tx.installment.update({
+            where: { id: payment.installmentId },
+            data: {
+              remainingTenorMonths: remainingPending,
+              status: InstallmentStatus.ACTIVE,
+            },
+          });
+        }
+      }
 
       return tx.transaction.delete({ where: { id } });
     });
