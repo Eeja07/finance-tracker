@@ -11,6 +11,8 @@
   flex-direction: column;
   min-height: 100vh;
   transition: margin-left 0.2s ease;
+  min-width: 0;
+  width: 100%;
 }
 
 .topNavbar {
@@ -113,5 +115,9 @@
   .welcomeText {
     font-size: 0.85rem;
     margin-right: 0;
+  }
+
+  .contentBody {
+    padding: 12px;
   }
 }

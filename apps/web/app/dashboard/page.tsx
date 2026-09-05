@@ -14,36 +14,109 @@ import {
   Receipt,
   AlertTriangle,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
 } from 'lucide-react';
 import { transactionsApi, installmentsApi, DashboardSummary, DailyExpenseSummary, Installment } from '@/lib/api';
 import styles from './dashboard.module.css';
 
+const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
 export default function DashboardOverview() {
+  const now = new Date();
+  const currentRealMonth = now.getMonth() + 1;
+  const currentRealYear = now.getFullYear();
+
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentRealMonth);
+  const [selectedYear, setSelectedYear] = useState<number>(currentRealYear);
+
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [daily, setDaily] = useState<DailyExpenseSummary | null>(null);
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
+  // Initial load for daily and installments
   useEffect(() => {
-    async function loadData() {
+    async function loadStaticData() {
       try {
         setLoading(true);
-        const [sumRes, dailyRes, instRes] = await Promise.all([
-          transactionsApi.getSummary().catch(() => null),
+        const [dailyRes, instRes] = await Promise.all([
           transactionsApi.getDaily().catch(() => null),
           installmentsApi.list('ACTIVE').catch(() => []),
         ]);
-        if (sumRes) setSummary(sumRes);
         if (dailyRes) setDaily(dailyRes);
         if (Array.isArray(instRes)) setInstallments(instRes);
       } catch (err) {
-        console.error('Failed to load dashboard overview data:', err);
+        console.error('Failed to load static overview data:', err);
       } finally {
         setLoading(false);
       }
     }
-    loadData();
+    loadStaticData();
   }, []);
+
+  // Fetch summary dynamically whenever selected month or year changes
+  useEffect(() => {
+    async function loadMonthlySummary() {
+      try {
+        setSummaryLoading(true);
+        const sumRes = await transactionsApi.getSummary({
+          month: selectedMonth,
+          year: selectedYear,
+        }).catch(() => null);
+        if (sumRes) setSummary(sumRes);
+      } catch (err) {
+        console.error('Failed to load dashboard overview data:', err);
+      } finally {
+        setSummaryLoading(false);
+      }
+    }
+    loadMonthlySummary();
+  }, [selectedMonth, selectedYear]);
+
+  const isCurrentMonth = selectedMonth === currentRealMonth && selectedYear === currentRealYear;
+  const selectedMonthName = MONTH_NAMES[selectedMonth - 1] || 'Bulan Ini';
+
+  const handlePrevMonth = () => {
+    if (selectedMonth === 1) {
+      setSelectedMonth(12);
+      setSelectedYear((y) => y - 1);
+    } else {
+      setSelectedMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 12) {
+      setSelectedMonth(1);
+      setSelectedYear((y) => y + 1);
+    } else {
+      setSelectedMonth((m) => m + 1);
+    }
+  };
+
+  const handleCurrentMonth = () => {
+    setSelectedMonth(currentRealMonth);
+    setSelectedYear(currentRealYear);
+  };
+
+  // Generate options for dropdown
+  const monthOptions: Array<{ value: string; label: string }> = [];
+  const startYear = currentRealYear - 2;
+  const endYear = currentRealYear + 1;
+  for (let y = startYear; y <= endYear; y++) {
+    for (let m = 1; m <= 12; m++) {
+      monthOptions.push({
+        value: `${y}-${m}`,
+        label: `${MONTH_NAMES[m - 1]} ${y}`,
+      });
+    }
+  }
 
   const totalAssets = summary?.totalAssets ?? 0;
   const monthlyIncome = summary?.monthlyIncome ?? 0;
@@ -74,6 +147,69 @@ export default function DashboardOverview() {
         </div>
       </div>
 
+      {/* Month Navigation & Analysis Period Toolbar */}
+      <div className={styles.monthNavBanner}>
+        <div className={styles.monthNavLeft}>
+          <span className={styles.periodLabel}>Periode Analisis:</span>
+          <div className={styles.monthNavControls}>
+            <button
+              onClick={handlePrevMonth}
+              className={styles.monthArrowBtn}
+              title="Bulan Sebelumnya"
+              aria-label="Bulan Sebelumnya"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <div className={styles.monthSelectWrap}>
+              <select
+                value={`${selectedYear}-${selectedMonth}`}
+                onChange={(e) => {
+                  const parts = e.target.value.split('-').map(Number);
+                  const y = parts[0];
+                  const m = parts[1];
+                  if (typeof y === 'number' && typeof m === 'number' && !isNaN(y) && !isNaN(m)) {
+                    setSelectedYear(y);
+                    setSelectedMonth(m);
+                  }
+                }}
+                className={styles.monthDropdown}
+                aria-label="Pilih Bulan dan Tahun Analisis"
+              >
+                {monthOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={handleNextMonth}
+              className={styles.monthArrowBtn}
+              title="Bulan Berikutnya"
+              aria-label="Bulan Berikutnya"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          {!isCurrentMonth && (
+            <button
+              onClick={handleCurrentMonth}
+              className={styles.resetMonthBtn}
+              title="Kembali ke Bulan Berjalan"
+            >
+              <RotateCcw size={12} />
+              <span>Bulan Ini</span>
+            </button>
+          )}
+        </div>
+        <div className={styles.monthNavRight}>
+          <span className={styles.monthActiveTag}>
+            <Calendar size={13} />
+            <span>{selectedMonthName} {selectedYear} {isCurrentMonth ? '(Bulan Ini)' : ''}</span>
+          </span>
+        </div>
+      </div>
+
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
           <Loader2 size={24} style={{ animation: 'spin 0.8s linear infinite', color: 'var(--primary)' }} />
@@ -81,7 +217,7 @@ export default function DashboardOverview() {
       ) : (
         <>
           {/* Summary KPI Cards */}
-          <div className={styles.kpiGrid}>
+          <div className={styles.kpiGrid} style={{ opacity: summaryLoading ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
             <div className={styles.kpiCard}>
               <div className={styles.kpiHeader}>
                 <span className={styles.kpiTitle}>Total Aset Keuangan</span>
@@ -90,12 +226,14 @@ export default function DashboardOverview() {
                 </div>
               </div>
               <div className={styles.kpiValue}>Rp {totalAssets.toLocaleString('id-ID')}</div>
-              <div className={styles.kpiFooter}>{accountCount} Dompet & Bank Terhubung</div>
+              <div className={styles.kpiFooter}>{accountCount} Dompet &amp; Bank Terhubung</div>
             </div>
 
             <div className={styles.kpiCard}>
               <div className={styles.kpiHeader}>
-                <span className={styles.kpiTitle}>Pemasukan Bulan Ini</span>
+                <span className={styles.kpiTitle}>
+                  Pemasukan {isCurrentMonth ? 'Bulan Ini' : `(${selectedMonthName})`}
+                </span>
                 <div className={styles.kpiIconIncome}>
                   <TrendingUp size={20} />
                 </div>
@@ -103,13 +241,17 @@ export default function DashboardOverview() {
               <div className={`${styles.kpiValue} ${styles.incomeText}`}>
                 Rp {monthlyIncome.toLocaleString('id-ID')}
               </div>
-              <div className={styles.kpiFooter}>Terhitung real-time DB</div>
+              <div className={styles.kpiFooter}>
+                {isCurrentMonth ? 'Terhitung bulan berjalan' : `Periode ${selectedMonthName} ${selectedYear}`}
+              </div>
             </div>
 
             <Link href="/dashboard/transactions?type=EXPENSE#transactions-filters" className={styles.kpiCardLink}>
               <div className={styles.kpiCard}>
                 <div className={styles.kpiHeader}>
-                  <span className={styles.kpiTitle}>Pengeluaran Bulan Ini</span>
+                  <span className={styles.kpiTitle}>
+                    Pengeluaran {isCurrentMonth ? 'Bulan Ini' : `(${selectedMonthName})`}
+                  </span>
                   <div className={styles.kpiIconExpense}>
                     <TrendingDown size={20} />
                   </div>
@@ -117,32 +259,42 @@ export default function DashboardOverview() {
                 <div className={`${styles.kpiValue} ${styles.expenseText}`}>
                   Rp {monthlyExpense.toLocaleString('id-ID')}
                 </div>
-                <div className={styles.kpiFooter}>Terhitung real-time DB</div>
+                <div className={styles.kpiFooter}>
+                  {isCurrentMonth ? 'Terhitung bulan berjalan' : `Periode ${selectedMonthName} ${selectedYear}`}
+                </div>
               </div>
             </Link>
 
             <div className={styles.kpiCard}>
               <div className={styles.kpiHeader}>
-                <span className={styles.kpiTitle}>Cashflow Bersih</span>
+                <span className={styles.kpiTitle}>
+                  Cashflow Bersih {isCurrentMonth ? 'Bulan Ini' : `(${selectedMonthName})`}
+                </span>
                 <div className={styles.kpiIconNet}>
                   <Scale size={20} />
                 </div>
               </div>
               <div className={styles.kpiValue}>Rp {netCashflow.toLocaleString('id-ID')}</div>
-              <div className={styles.kpiFooter}>{netCashflow >= 0 ? 'Surplus bulan ini' : 'Defisit bulan ini'}</div>
+              <div className={styles.kpiFooter}>
+                {netCashflow >= 0
+                  ? `Surplus ${isCurrentMonth ? 'bulan ini' : `di bulan ${selectedMonthName}`}`
+                  : `Defisit ${isCurrentMonth ? 'bulan ini' : `di bulan ${selectedMonthName}`}`}
+              </div>
             </div>
           </div>
 
           {/* Main Content Grid: Daily Expense & Active Installments */}
           <div className={styles.mainGrid}>
-            {/* Daily Expenses Section */}
+            {/* Daily Expenses Section (Pengeluaran Hari Ini) */}
             <div className={styles.cardSection}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionTitleGroup}>
                   <Calendar size={20} className={styles.accentIcon} />
                   <div>
                     <h3>Pengeluaran Hari Ini</h3>
-                    <span className={styles.subTitle}>Terhubung langsung dengan database</span>
+                    <span className={styles.subTitle}>
+                      {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
                   </div>
                 </div>
                 <div className={styles.dailyTotalBadge}>

@@ -226,9 +226,24 @@ export class TransactionsService {
   }
 
   async getDailyExpenseStats(userId: string, targetDate?: string) {
-    const date = targetDate ? new Date(targetDate) : new Date();
-    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
-    const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+    let year: number;
+    let month: number;
+    let day: number;
+
+    if (targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+      const parts = targetDate.split('-').map(Number);
+      year = parts[0];
+      month = parts[1] - 1;
+      day = parts[2];
+    } else {
+      const date = targetDate ? new Date(targetDate) : new Date();
+      year = date.getFullYear();
+      month = date.getMonth();
+      day = date.getDate();
+    }
+
+    const startOfDay = new Date(year, month, day, 0, 0, 0, 0);
+    const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
 
     const txs = await this.prisma.transaction.findMany({
       where: {
@@ -236,7 +251,6 @@ export class TransactionsService {
         type: TransactionType.EXPENSE,
         OR: [
           {
-            installmentPaymentId: null,
             date: { gte: startOfDay, lte: endOfDay },
           },
           {
@@ -271,10 +285,23 @@ export class TransactionsService {
     };
   }
 
-  async getSummary(userId: string) {
+  async getSummary(userId: string, month?: number, year?: number) {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+    const targetMonth = month ? Math.max(1, Math.min(12, Number(month))) : now.getMonth() + 1;
+    const targetYear = year ? Number(year) : now.getFullYear();
+
+    // Boundary calculation covering local, UTC, and WIB (UTC+7)
+    const localStart = new Date(targetYear, targetMonth - 1, 1, 0, 0, 0, 0);
+    const localEnd = new Date(targetYear, targetMonth, 0, 23, 59, 59, 999);
+
+    const utcStart = new Date(Date.UTC(targetYear, targetMonth - 1, 1, 0, 0, 0, 0));
+    const wibStart = new Date(utcStart.getTime() - 7 * 3600 * 1000);
+    const startOfMonth = new Date(Math.min(localStart.getTime(), utcStart.getTime(), wibStart.getTime()));
+
+    const nextMonthUtc = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0, 0));
+    const utcEnd = new Date(nextMonthUtc.getTime() - 1);
+    const wibEnd = new Date(nextMonthUtc.getTime() - 7 * 3600 * 1000 - 1);
+    const endOfMonth = new Date(Math.max(localEnd.getTime(), utcEnd.getTime(), wibEnd.getTime()));
 
     const accounts = await this.prisma.account.findMany({
       where: { userId, isArchived: false },
@@ -286,7 +313,6 @@ export class TransactionsService {
         userId,
         OR: [
           {
-            installmentPaymentId: null,
             date: { gte: startOfMonth, lte: endOfMonth },
           },
           {
@@ -327,6 +353,8 @@ export class TransactionsService {
       netCashflow: monthlyIncome - monthlyExpense,
       categoryBreakdown: Object.values(categoryBreakdown),
       accountCount: accounts.length,
+      month: targetMonth,
+      year: targetYear,
     };
   }
 }

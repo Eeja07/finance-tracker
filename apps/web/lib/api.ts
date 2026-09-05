@@ -108,6 +108,8 @@ export interface DashboardSummary {
   netCashflow: number;
   categoryBreakdown: { name: string; color: string; amount: number }[];
   accountCount: number;
+  month?: number;
+  year?: number;
 }
 
 export interface DailyExpenseSummary {
@@ -250,7 +252,13 @@ export const transactionsApi = {
     if (params?.type) q.set('type', params.type);
     return request<{ items: Transaction[]; total: number; page: number; totalPages: number }>(`/transactions?${q}`);
   },
-  getSummary: () => request<DashboardSummary>('/transactions/summary'),
+  getSummary: (params?: { month?: number; year?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.month) q.set('month', String(params.month));
+    if (params?.year) q.set('year', String(params.year));
+    const qs = q.toString();
+    return request<DashboardSummary>(`/transactions/summary${qs ? `?${qs}` : ''}`);
+  },
   getDaily: (date?: string) => request<DailyExpenseSummary>(`/transactions/daily${date ? `?date=${date}` : ''}`),
   create: (body: { accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string }) =>
     request<Transaction>('/transactions', { method: 'POST', body: JSON.stringify(body) }),

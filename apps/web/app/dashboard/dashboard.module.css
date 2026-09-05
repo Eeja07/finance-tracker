@@ -155,22 +155,138 @@
   gap: 16px;
 }
 
+.monthNavBanner {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.monthNavLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.periodLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.monthNavControls {
+  display: flex;
+  align-items: center;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+  gap: 2px;
+}
+
+.monthArrowBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.monthArrowBtn:hover {
+  background: var(--bg-card-hover);
+  color: var(--accent);
+}
+
+.monthSelectWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.monthDropdown {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 4px 28px 4px 8px;
+  cursor: pointer;
+  outline: none;
+  width: auto;
+}
+
+.resetMonthBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--accent-light);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.resetMonthBtn:hover {
+  opacity: 0.9;
+}
+
+.monthNavRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monthActiveTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+}
+
 .sectionHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .sectionTitleGroup {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex: 1;
 }
 
 .accentIcon {
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .sectionTitleGroup h3 {
@@ -187,11 +303,13 @@
 .dailyTotalBadge {
   background: var(--expense-bg);
   color: var(--expense-color);
-  padding: 2px 8px;
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
   font-weight: 600;
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .expenseList {
@@ -208,6 +326,7 @@
   background: var(--bg-subtle);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
+  min-width: 0;
 }
 
 .expenseIcon {
@@ -219,6 +338,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .expenseDetails {
@@ -240,6 +360,9 @@
 .expenseMeta {
   font-size: 0.72rem;
   color: var(--text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .expenseAmount {
@@ -247,6 +370,9 @@
   font-weight: 600;
   color: var(--expense-color);
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-align: right;
 }
 
 .cardFooter {
@@ -285,10 +411,12 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+    padding: 14px 16px;
   }
 
   .kpiGrid {
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .heroActions {
@@ -298,6 +426,56 @@
   .primaryBtn, .secondaryBtn {
     flex: 1;
     justify-content: center;
+  }
+
+  .monthNavBanner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .monthNavLeft {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .monthNavControls {
+    flex: 1;
+    justify-content: space-between;
+  }
+
+  .monthNavRight {
+    display: none;
+  }
+
+  .cardSection {
+    padding: 14px 12px;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .dailyTotalBadge {
+    align-self: flex-start;
+  }
+
+  .expenseRow {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .instHeader {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .instBody {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 }
 

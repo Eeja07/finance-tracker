@@ -31,8 +31,16 @@ export class TransactionsController {
   }
 
   @Get('summary')
-  async getSummary(@Request() req: any) {
-    return this.transactionsService.getSummary(req.user.id);
+  async getSummary(
+    @Request() req: any,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
+  ) {
+    return this.transactionsService.getSummary(
+      req.user.id,
+      month ? Number(month) : undefined,
+      year ? Number(year) : undefined,
+    );
   }
 
   @Get('daily')
