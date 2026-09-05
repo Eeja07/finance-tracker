@@ -272,6 +272,25 @@ export const transactionsApi = {
   getDaily: (date?: string) => request<DailyExpenseSummary>(`/transactions/daily${date ? `?date=${date}` : ''}`),
   create: (body: { accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string; installmentPaymentId?: string }) =>
     request<Transaction>('/transactions', { method: 'POST', body: JSON.stringify(body) }),
+  createTransfer: (body: {
+    fromAccountId: string;
+    toAccountId: string;
+    amount: number;
+    adminFee?: number;
+    date?: string;
+    description?: string;
+    notes?: string;
+    receiptUrl?: string;
+  }) =>
+    request<{
+      transferGroupId: string;
+      outflowTransaction: Transaction;
+      inflowTransaction: Transaction;
+      adminFeeTransaction?: Transaction | null;
+    }>('/transactions/transfer', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   update: (id: string, body: Partial<{ accountId: string; categoryId: string; type: string; amount: number; description: string; recipientOrPayer?: string; notes?: string; date?: string; receiptUrl?: string; itemImageUrl?: string; installmentPaymentId?: string }>) =>
     request<Transaction>(`/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (id: string) => request<Transaction>(`/transactions/${id}`, { method: 'DELETE' }),

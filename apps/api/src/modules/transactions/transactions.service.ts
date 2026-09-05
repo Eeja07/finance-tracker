@@ -25,8 +25,13 @@ export class TransactionsService {
     const where: Prisma.TransactionWhereInput = { userId };
 
     if (options?.accountId) where.accountId = options.accountId;
-    if (options?.categoryId) where.categoryId = options.categoryId;
-    if (options?.type) where.type = options.type;
+    if (options?.type) {
+      if ((options.type as string) === 'TRANSFER') {
+        where.notes = { contains: '[Transfer-ID:' };
+      } else {
+        where.type = options.type;
+      }
+    }
 
     if (options?.startDate || options?.endDate) {
       const dateRange: Prisma.DateTimeFilter = {};
@@ -212,6 +217,193 @@ export class TransactionsService {
     });
   }
 
+  async createTransfer(
+    userId: string,
+    data: {
+      fromAccountId: string;
+      toAccountId: string;
+      amount: number;
+      adminFee?: number;
+      date?: string | Date;
+      description?: string;
+      notes?: string;
+      receiptUrl?: string;
+    },
+  ) {
+    if (!data.fromAccountId || !data.toAccountId) {
+      throw new BadRequestException('Dompet asal dan dompet tujuan harus dipilih');
+    }
+    if (data.fromAccountId === data.toAccountId) {
+      throw new BadRequestException('Dompet asal dan tujuan tidak boleh sama');
+    }
+    if (!data.amount || data.amount <= 0) {
+      throw new BadRequestException('Nominal transfer harus lebih dari 0');
+    }
+    const adminFee = data.adminFee && data.adminFee > 0 ? Number(data.adminFee) : 0;
+
+    const [fromAccount, toAccount] = await Promise.all([
+      this.prisma.account.findFirst({ where: { id: data.fromAccountId, userId } }),
+      this.prisma.account.findFirst({ where: { id: data.toAccountId, userId } }),
+    ]);
+
+    if (!fromAccount) {
+      throw new NotFoundException('Dompet asal tidak ditemukan');
+    }
+    if (!toAccount) {
+      throw new NotFoundException('Dompet tujuan tidak ditemukan');
+    }
+
+    const txDate = data.date ? new Date(data.date) : new Date();
+    const transferGroupId = `TRF-${Date.now()}-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Find or create appropriate EXPENSE category for transfer
+      let expenseCategory = await tx.category.findFirst({
+        where: {
+          type: TransactionType.EXPENSE,
+          OR: [
+            { name: { in: ['Pergantian Saldo', 'Transfer Saldo', 'Transfer', 'Lainnya'] } },
+            { isSystemDefault: true },
+          ],
+        },
+        orderBy: { isSystemDefault: 'asc' },
+      });
+      if (!expenseCategory) {
+        expenseCategory = await tx.category.findFirst({
+          where: { type: TransactionType.EXPENSE },
+        });
+      }
+      if (!expenseCategory) {
+        expenseCategory = await tx.category.create({
+          data: {
+            name: 'Pergantian Saldo',
+            type: TransactionType.EXPENSE,
+            icon: 'ArrowLeftRight',
+            color: '#6366F1',
+            isSystemDefault: true,
+          },
+        });
+      }
+
+      // 2. Find or create appropriate INCOME category for transfer
+      let incomeCategory = await tx.category.findFirst({
+        where: {
+          type: TransactionType.INCOME,
+          OR: [
+            { name: { in: ['Pergantian Saldo', 'Transfer Saldo', 'Transfer', 'Pengembalian Dana (Refund)', 'Lainnya'] } },
+            { isSystemDefault: true },
+          ],
+        },
+        orderBy: { isSystemDefault: 'asc' },
+      });
+      if (!incomeCategory) {
+        incomeCategory = await tx.category.findFirst({
+          where: { type: TransactionType.INCOME },
+        });
+      }
+      if (!incomeCategory) {
+        incomeCategory = await tx.category.create({
+          data: {
+            name: 'Pergantian Saldo',
+            type: TransactionType.INCOME,
+            icon: 'ArrowLeftRight',
+            color: '#10B981',
+            isSystemDefault: true,
+          },
+        });
+      }
+
+      // 3. Outgoing EXPENSE transaction from fromAccount
+      const baseOutDesc = data.description?.trim() || `Pergantian Saldo ke ${toAccount.name}`;
+      const expenseNotes = `🔄 Pergantian Saldo ke ${toAccount.name}\n[Transfer-ID: ${transferGroupId}]${data.notes ? `\nCatatan: ${data.notes}` : ''}`;
+
+      const outTx = await tx.transaction.create({
+        data: {
+          userId,
+          accountId: fromAccount.id,
+          categoryId: expenseCategory.id,
+          type: TransactionType.EXPENSE,
+          amount: data.amount,
+          description: baseOutDesc,
+          recipientOrPayer: toAccount.name,
+          notes: expenseNotes,
+          date: txDate,
+          receiptUrl: data.receiptUrl,
+        },
+      });
+
+      await tx.account.update({
+        where: { id: fromAccount.id },
+        data: { balance: { decrement: data.amount } },
+      });
+
+      // 4. Incoming INCOME transaction to toAccount
+      const baseInDesc = data.description?.trim() || `Pergantian Saldo dari ${fromAccount.name}`;
+      const incomeNotes = `🔄 Pergantian Saldo dari ${fromAccount.name}\n[Transfer-ID: ${transferGroupId}]${data.notes ? `\nCatatan: ${data.notes}` : ''}`;
+
+      const inTx = await tx.transaction.create({
+        data: {
+          userId,
+          accountId: toAccount.id,
+          categoryId: incomeCategory.id,
+          type: TransactionType.INCOME,
+          amount: data.amount,
+          description: baseInDesc,
+          recipientOrPayer: fromAccount.name,
+          notes: incomeNotes,
+          date: txDate,
+          receiptUrl: data.receiptUrl,
+        },
+      });
+
+      await tx.account.update({
+        where: { id: toAccount.id },
+        data: { balance: { increment: data.amount } },
+      });
+
+      // 5. Admin fee transaction if any (deducted from fromAccount)
+      let feeTx: any = null;
+      if (adminFee > 0) {
+        let adminCategory = await tx.category.findFirst({
+          where: {
+            type: TransactionType.EXPENSE,
+            name: { contains: 'Admin', mode: 'insensitive' },
+          },
+        });
+        if (!adminCategory) {
+          adminCategory = expenseCategory;
+        }
+
+        const feeNotes = `💳 Biaya Admin Pergantian Saldo (${fromAccount.name} ➔ ${toAccount.name})\n[Transfer-ID: ${transferGroupId}]`;
+        feeTx = await tx.transaction.create({
+          data: {
+            userId,
+            accountId: fromAccount.id,
+            categoryId: adminCategory.id,
+            type: TransactionType.EXPENSE,
+            amount: adminFee,
+            description: `Biaya Admin Transfer ke ${toAccount.name}`,
+            recipientOrPayer: 'Biaya Admin Layanan',
+            notes: feeNotes,
+            date: txDate,
+          },
+        });
+
+        await tx.account.update({
+          where: { id: fromAccount.id },
+          data: { balance: { decrement: adminFee } },
+        });
+      }
+
+      return {
+        transferGroupId,
+        outflowTransaction: outTx,
+        inflowTransaction: inTx,
+        adminFeeTransaction: feeTx,
+      };
+    });
+  }
+
   async update(
     userId: string,
     id: string,
@@ -342,6 +534,29 @@ export class TransactionsService {
     const existing = await this.findOne(userId, id);
 
     return this.prisma.$transaction(async (tx) => {
+      // 0. If this transaction is part of a transfer group, delete all paired transactions in the group atomically
+      const transferMatch = existing.notes?.match(/\[Transfer-ID:\s*(TRF-[A-Z0-9-]+)\]/);
+      if (transferMatch && transferMatch[1]) {
+        const transferGroupId = transferMatch[1];
+        const linkedTxs = await tx.transaction.findMany({
+          where: {
+            userId,
+            notes: { contains: `[Transfer-ID: ${transferGroupId}]` },
+          },
+        });
+
+        for (const linkedTx of linkedTxs) {
+          const revImpact = linkedTx.type === TransactionType.INCOME ? -linkedTx.amount : linkedTx.amount;
+          await tx.account.update({
+            where: { id: linkedTx.accountId },
+            data: { balance: { increment: revImpact } },
+          });
+          await tx.transaction.delete({ where: { id: linkedTx.id } });
+        }
+
+        return existing;
+      }
+
       // 1. Revert account balance
       const balanceChange = existing.type === TransactionType.INCOME ? -existing.amount : existing.amount;
       await tx.account.update({

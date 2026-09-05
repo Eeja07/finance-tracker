@@ -74,6 +74,24 @@ export class TransactionsController {
     return this.transactionsService.create(req.user.id, body);
   }
 
+  @Post('transfer')
+  async createTransfer(
+    @Request() req: any,
+    @Body()
+    body: {
+      fromAccountId: string;
+      toAccountId: string;
+      amount: number;
+      adminFee?: number;
+      date?: string;
+      description?: string;
+      notes?: string;
+      receiptUrl?: string;
+    },
+  ) {
+    return this.transactionsService.createTransfer(req.user.id, body);
+  }
+
   @Patch(':id')
   async update(
     @Request() req: any,

@@ -22,6 +22,8 @@ import {
   FileText,
   Image as ImageIcon,
   CreditCard,
+  ArrowLeftRight,
+  ArrowRight,
 } from 'lucide-react';
 import {
   transactionsApi,
@@ -62,9 +64,12 @@ export default function TransactionsPage() {
   const [txDate, setTxDate] = useState<string>(getTodayString());
   const [newDesc, setNewDesc] = useState('');
   const [newAmount, setNewAmount] = useState('');
-  const [newType, setNewType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
+  const [newType, setNewType] = useState<'EXPENSE' | 'INCOME' | 'TRANSFER'>('EXPENSE');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [toAccountId, setToAccountId] = useState('');
+  const [hasAdminFee, setHasAdminFee] = useState(false);
+  const [adminFee, setAdminFee] = useState('');
   const [recipientOrPayer, setRecipientOrPayer] = useState('');
 
   // Optional photo attachments
@@ -107,6 +112,9 @@ export default function TransactionsPage() {
       }
       if (accRes && accRes.length > 0 && accRes[0]) {
         setSelectedAccountId(accRes[0].id);
+        if (accRes.length > 1) {
+          setToAccountId((prev) => prev || accRes[1]!.id);
+        }
       }
     } catch (err) {
       console.error('Failed to load transaction data:', err);
@@ -215,7 +223,13 @@ export default function TransactionsPage() {
       t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (t.recipientOrPayer && t.recipientOrPayer.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (t.notes && t.notes.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesType = filterType === 'ALL' || t.type === filterType;
+    const isTransferTx = t.type === 'TRANSFER' || !!(t.notes && t.notes.includes('[Transfer-ID:'));
+    const matchesType =
+      filterType === 'ALL'
+        ? true
+        : filterType === 'TRANSFER'
+        ? isTransferTx
+        : t.type === filterType;
     return matchesSearch && matchesType;
   });
 
@@ -270,6 +284,14 @@ export default function TransactionsPage() {
     setItemList([{ name: '', qty: 1, price: 0 }]);
     setIsPayingInstallment(false);
     setSelectedInstallmentPaymentId('');
+    setHasAdminFee(false);
+    setAdminFee('');
+    if (accounts.length > 0) {
+      setSelectedAccountId(accounts[0]!.id);
+      if (accounts.length > 1) {
+        setToAccountId(accounts[1]!.id);
+      }
+    }
   };
 
   const handleSelectInstallmentPayment = (paymentId: string) => {
@@ -306,13 +328,14 @@ export default function TransactionsPage() {
   const openCreateModal = () => {
     setError('');
     resetFormState();
+    setNewType('EXPENSE');
     setIsModalOpen(true);
   };
 
   const openEditModal = (t: Transaction) => {
     setError('');
     setEditingTransaction(t);
-    setNewType(t.type as 'EXPENSE' | 'INCOME');
+    setNewType(t.type === 'TRANSFER' ? 'EXPENSE' : (t.type as 'EXPENSE' | 'INCOME'));
     const dateFormatted = new Date(t.date).toISOString().split('T')[0]!;
     setTxDate(dateFormatted);
     setNewDesc(t.description);
@@ -324,6 +347,8 @@ export default function TransactionsPage() {
     setItemImage(t.itemImageUrl || null);
     setIsMultiItem(false);
     setItemList([{ name: '', qty: 1, price: 0 }]);
+    setHasAdminFee(false);
+    setAdminFee('');
     if (t.installmentPaymentId) {
       setIsPayingInstallment(true);
       setSelectedInstallmentPaymentId(t.installmentPaymentId);
@@ -336,7 +361,61 @@ export default function TransactionsPage() {
 
   const handleSaveTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDesc || !newAmount) return;
+    if (!newAmount) return;
+
+    if (newType === 'TRANSFER') {
+      if (!selectedAccountId) {
+        setError('Silakan pilih dompet asal.');
+        return;
+      }
+      if (!toAccountId) {
+        setError('Silakan pilih dompet tujuan.');
+        return;
+      }
+      if (selectedAccountId === toAccountId) {
+        setError('Dompet asal dan dompet tujuan tidak boleh sama.');
+        return;
+      }
+      const numAmount = parseFloat(newAmount);
+      if (!numAmount || numAmount <= 0) {
+        setError('Nominal transfer harus lebih dari 0.');
+        return;
+      }
+      const numAdminFee = hasAdminFee && adminFee ? parseFloat(adminFee) : 0;
+      if (hasAdminFee && numAdminFee < 0) {
+        setError('Nominal biaya admin tidak boleh negatif.');
+        return;
+      }
+
+      setError('');
+      setSubmitting(true);
+      try {
+        await transactionsApi.createTransfer({
+          fromAccountId: selectedAccountId,
+          toAccountId: toAccountId,
+          amount: numAmount,
+          adminFee: numAdminFee,
+          date: txDate,
+          description: newDesc.trim() || undefined,
+          notes: recipientOrPayer ? `Keterangan: ${recipientOrPayer}` : undefined,
+          receiptUrl: receiptImage || undefined,
+        });
+
+        setIsModalOpen(false);
+        resetFormState();
+        await loadAllData();
+      } catch (err: any) {
+        setError(err.message || 'Gagal menyimpan pergantian saldo');
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    if (!newDesc) {
+      setError('Silakan isi judul / keterangan transaksi.');
+      return;
+    }
     if (!selectedAccountId) {
       setError('Silakan pilih dompet / akun terlebih dahulu.');
       return;
@@ -462,6 +541,12 @@ export default function TransactionsPage() {
           >
             Pemasukan
           </button>
+          <button
+            onClick={() => setFilterType('TRANSFER')}
+            className={`${styles.filterBtn} ${filterType === 'TRANSFER' ? styles.activeFilter : ''}`}
+          >
+            Pergantian Saldo
+          </button>
         </div>
       </div>
 
@@ -552,6 +637,15 @@ export default function TransactionsPage() {
                                       <span>
                                         Cicilan: {t.installmentPayment.installment?.title || 'Cicilan'} (Bulan Ke-{t.installmentPayment.tenorNumber}{t.installmentPayment.installment?.totalTenorMonths ? `/${t.installmentPayment.installment.totalTenorMonths}` : ''})
                                       </span>
+                                    </span>
+                                  </div>
+                                )}
+
+                                {(t.type === 'TRANSFER' || !!(t.notes && t.notes.includes('[Transfer-ID:'))) && (
+                                  <div>
+                                    <span className={styles.txTransferBadge} title="Transaksi Pergantian / Transfer Saldo">
+                                      <ArrowLeftRight size={11} />
+                                      <span>Pergantian Saldo</span>
                                     </span>
                                   </div>
                                 )}
@@ -667,6 +761,15 @@ export default function TransactionsPage() {
                               </span>
                             </div>
                           )}
+
+                          {(t.type === 'TRANSFER' || !!(t.notes && t.notes.includes('[Transfer-ID:'))) && (
+                            <div style={{ marginTop: '3px' }}>
+                              <span className={styles.txTransferBadge} title="Transaksi Pergantian / Transfer Saldo">
+                                <ArrowLeftRight size={11} />
+                                <span>Pergantian Saldo</span>
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -749,7 +852,7 @@ export default function TransactionsPage() {
           <div className={styles.modalContent}>
             <div className={styles.modalHeader}>
               <Receipt size={20} style={{ color: 'var(--accent)' }} />
-              <h3>{editingTransaction ? 'Edit Transaksi' : 'Catat Transaksi Baru'}</h3>
+              <h3>{editingTransaction ? 'Edit Transaksi' : (newType === 'TRANSFER' ? 'Pergantian Saldo' : 'Catat Transaksi Baru')}</h3>
             </div>
 
             <form onSubmit={handleSaveTransaction} className={styles.form}>
@@ -778,6 +881,26 @@ export default function TransactionsPage() {
                   >
                     Pemasukan
                   </button>
+                  {!editingTransaction && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewType('TRANSFER');
+                        setIsMultiItem(false);
+                        setIsPayingInstallment(false);
+                        setSelectedInstallmentPaymentId('');
+                        setItemImage(null);
+                        if (!toAccountId && accounts.length > 1) {
+                          const other = accounts.find((a) => a.id !== selectedAccountId);
+                          if (other) setToAccountId(other.id);
+                        }
+                      }}
+                      className={`${styles.typeBtn} ${newType === 'TRANSFER' ? styles.activeTransfer : ''}`}
+                    >
+                      <ArrowLeftRight size={14} />
+                      <span>Pergantian Saldo</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -794,256 +917,122 @@ export default function TransactionsPage() {
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Judul / Keterangan Utama</label>
-                <input
-                  type="text"
-                  placeholder="Misal: Belanja Bulanan Supermarket / Gaji Bulanan"
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  className={styles.textInput}
-                  required
-                />
-              </div>
-
-              {/* Opsi Membayar Cicilan - HANYA UNTUK PENGELUARAN */}
-              {newType === 'EXPENSE' && (
-                <div className={styles.installmentToggleContainer}>
-                  <label className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={isPayingInstallment}
-                      disabled={isMultiItem}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setIsPayingInstallment(checked);
-                        if (!checked) {
-                          setSelectedInstallmentPaymentId('');
-                        } else {
-                          setIsMultiItem(false);
-                        }
-                      }}
-                      className={styles.checkboxInput}
-                    />
-                    <CreditCard size={16} className={styles.toggleIcon} />
-                    <span>Membayar Tagihan Cicilan Aktif</span>
-                  </label>
-
-                  {isPayingInstallment && (
-                    <div className={styles.installmentSelectBox}>
-                      <label className={styles.installmentSelectLabel}>Pilih Cicilan &amp; Bulan Tagihan:</label>
-                      <select
-                        value={selectedInstallmentPaymentId}
-                        onChange={(e) => handleSelectInstallmentPayment(e.target.value)}
-                        className={styles.installmentDropdown}
-                        required={isPayingInstallment}
-                      >
-                        <option value="">-- Pilih Cicilan &amp; Bulan Tagihan --</option>
-                        {activeInstallments.map((inst) => {
-                          const pendingPayments = (inst.payments || []).filter(
-                            (p) => p.status !== 'PAID' || p.id === selectedInstallmentPaymentId
-                          );
-                          if (pendingPayments.length === 0) return null;
-                          return (
-                            <optgroup key={inst.id} label={`${inst.title} (${inst.provider})`}>
-                              {pendingPayments.map((p) => {
-                                const dueFormatted = new Date(p.dueDate).toLocaleDateString('id-ID', {
-                                  day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric',
-                                });
-                                return (
-                                  <option key={p.id} value={p.id}>
-                                    Bulan Ke-{p.tenorNumber} dari {inst.totalTenorMonths} — Jatuh Tempo: {dueFormatted} — Rp {p.amount.toLocaleString('id-ID')} {p.status === 'PAID' ? '(Terbayar)' : ''}
-                                  </option>
-                                );
-                              })}
-                            </optgroup>
-                          );
-                        })}
-                      </select>
-                      {activeInstallments.length === 0 && (
-                        <span className={styles.installmentHelpText} style={{ color: 'var(--text-muted)' }}>
-                          Belum ada cicilan aktif yang tercatat. Tambahkan di menu Cicilan terlebih dahulu.
-                        </span>
-                      )}
-                      {selectedInstallmentPaymentId && (
-                        <span className={styles.installmentHelpText}>
-                          ✓ Otomatis mengisi nominal, judul, provider, dan dompet. Setelah disimpan, status di menu Cicilan otomatis berubah menjadi Terbayar (Lunas).
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Multi-Item Toggle Checkbox Option - ONLY AVAILABLE FOR EXPENSES */}
-              {newType === 'EXPENSE' && (
-                <div className={styles.multiItemToggleContainer}>
-                  <label className={styles.checkboxLabel}>
-                    <input
-                      type="checkbox"
-                      checked={isMultiItem}
-                      disabled={isPayingInstallment}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setIsMultiItem(checked);
-                        if (checked) {
-                          setIsPayingInstallment(false);
-                          setSelectedInstallmentPaymentId('');
-                          const total = itemList.reduce((acc, it) => acc + ((Number(it.qty) || 1) * (Number(it.price) || 0)), 0);
-                          setNewAmount(total > 0 ? String(total) : '');
-                        }
-                      }}
-                      className={styles.checkboxInput}
-                    />
-                    <Package size={16} className={styles.toggleIcon} />
-                    <span>Rincian Banyak Barang (Multi-Item Pengeluaran)</span>
-                  </label>
-                </div>
-              )}
-
-              {/* Dynamic Item List Table */}
-              {isMultiItem && newType === 'EXPENSE' ? (
-                <div className={styles.multiItemBox}>
-                  <div className={styles.multiItemHeader}>
-                    <span className={styles.multiItemBoxTitle}>Daftar Rincian Barang</span>
-                    <span className={styles.multiItemCountBadge}>{itemList.length} Items</span>
-                  </div>
-
-                  <div className={styles.itemTableHeader}>
-                    <span>Nama Barang</span>
-                    <span>Qty</span>
-                    <span>Harga Satuan</span>
-                    <span style={{ textAlign: 'right' }}>Subtotal</span>
-                    <span></span>
-                  </div>
-
-                  {itemList.map((item, idx) => (
-                    <div key={idx} className={styles.itemRow}>
-                      <input
-                        type="text"
-                        placeholder={`Minyak, Beras... #${idx + 1}`}
-                        value={item.name}
-                        onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
-                        className={styles.itemNameInput}
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="1"
-                        value={item.qty}
-                        onChange={(e) => handleItemChange(idx, 'qty', e.target.value)}
-                        className={styles.itemQtyInput}
-                      />
-                      <input
-                        type="number"
-                        placeholder="Harga (Rp)"
-                        value={item.price || ''}
-                        onChange={(e) => handleItemChange(idx, 'price', e.target.value)}
-                        className={styles.itemPriceInput}
-                      />
-                      <span className={styles.itemSubtotal}>
-                        Rp {((item.qty || 1) * (item.price || 0)).toLocaleString('id-ID')}
-                      </span>
-                      {itemList.length > 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveItemRow(idx)}
-                          className={styles.removeItemBtn}
-                          title="Hapus baris barang"
-                        >
-                          <X size={15} />
-                        </button>
-                      ) : (
-                        <span></span>
-                      )}
-                    </div>
-                  ))}
-
-                  <button
-                    type="button"
-                    onClick={handleAddItemRow}
-                    className={styles.addItemBtn}
-                  >
-                    <Plus size={14} />
-                    <span>Tambah Baris Barang</span>
-                  </button>
-                </div>
-              ) : null}
-
-              <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Total Nominal (Rp)</label>
-                <input
-                  type="number"
-                  placeholder="50000"
-                  value={newAmount}
-                  onChange={(e) => setNewAmount(e.target.value)}
-                  readOnly={isMultiItem}
-                  className={`${styles.textInput} ${isMultiItem ? styles.readOnlyInput : ''}`}
-                  required
-                />
-              </div>
-
-              <div className={styles.formGrid}>
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Kategori</label>
-                  <select
-                    value={selectedCategoryId}
-                    onChange={(e) => setSelectedCategoryId(e.target.value)}
-                    className={styles.selectInput}
-                    required
-                  >
-                    {availableCategories.length === 0 ? (
-                      <option value="">Tidak ada kategori</option>
-                    ) : (
-                      availableCategories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Dompet / Akun</label>
-                  <select
-                    value={selectedAccountId}
-                    onChange={(e) => setSelectedAccountId(e.target.value)}
-                    className={styles.selectInput}
-                    required
-                  >
-                    {accounts.length === 0 ? (
-                      <option value="">Buat dompet terlebih dahulu</option>
-                    ) : (
-                      accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} (Saldo: Rp {a.balance.toLocaleString('id-ID')})
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-              </div>
-
-              <div className={styles.formGroup}>
                 <label className={styles.formLabel}>
-                  {newType === 'EXPENSE' ? 'Penerima / Toko (Opsional)' : 'Pemberi / Sumber Dana (Opsional)'}
+                  {newType === 'TRANSFER' ? 'Keterangan / Catatan Transfer (Opsional)' : 'Judul / Keterangan Utama'}
                 </label>
                 <input
                   type="text"
-                  placeholder={newType === 'EXPENSE' ? 'Misal: RM Sederhana / Tokopedia / Superindo' : 'Misal: PT Client / Bos / Transfer Teman'}
-                  value={recipientOrPayer}
-                  onChange={(e) => setRecipientOrPayer(e.target.value)}
+                  placeholder={
+                    newType === 'TRANSFER'
+                      ? 'Misal: Top up e-wallet / Pindah dana tabungan'
+                      : 'Misal: Belanja Bulanan Supermarket / Gaji Bulanan'
+                  }
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
                   className={styles.textInput}
+                  required={newType !== 'TRANSFER'}
                 />
               </div>
 
-              {/* Optional Photo Inputs */}
-              {newType === 'EXPENSE' ? (
-                <div className={styles.formGrid}>
+              {newType === 'TRANSFER' ? (
+                <>
+                  <div className={styles.transferAccountsGrid}>
+                    <div className={styles.formGroup}>
+                      <label className={styles.formLabel}>Dompet Asal (Sumber Dana)</label>
+                      <select
+                        value={selectedAccountId}
+                        onChange={(e) => {
+                          const newFrom = e.target.value;
+                          setSelectedAccountId(newFrom);
+                          if (newFrom === toAccountId) {
+                            const other = accounts.find((a) => a.id !== newFrom);
+                            if (other) setToAccountId(other.id);
+                          }
+                        }}
+                        className={styles.selectInput}
+                        required
+                      >
+                        {accounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name} (Saldo: Rp {a.balance.toLocaleString('id-ID')})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className={styles.transferArrowIcon}>
+                      <ArrowRight size={20} />
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label className={styles.formLabel}>Dompet Tujuan (Penerima Dana)</label>
+                      <select
+                        value={toAccountId}
+                        onChange={(e) => setToAccountId(e.target.value)}
+                        className={styles.selectInput}
+                        required
+                      >
+                        <option value="">-- Pilih Dompet Tujuan --</option>
+                        {accounts.map((a) => (
+                          <option key={a.id} value={a.id} disabled={a.id === selectedAccountId}>
+                            {a.name} (Saldo: Rp {a.balance.toLocaleString('id-ID')})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Foto Nota / Struk (Opsional)</label>
+                    <label className={styles.formLabel}>Nominal Pergantian Saldo (Rp)</label>
+                    <input
+                      type="number"
+                      placeholder="Misal: 100000"
+                      value={newAmount}
+                      onChange={(e) => setNewAmount(e.target.value)}
+                      className={styles.textInput}
+                      required
+                      min="1"
+                    />
+                  </div>
+
+                  {/* Checkbox Opsi Biaya Admin */}
+                  <div className={styles.adminFeeToggleContainer}>
+                    <label className={styles.checkboxLabel}>
+                      <input
+                        type="checkbox"
+                        checked={hasAdminFee}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setHasAdminFee(checked);
+                          if (!checked) setAdminFee('');
+                        }}
+                        className={styles.checkboxInput}
+                      />
+                      <CreditCard size={16} className={styles.toggleIcon} />
+                      <span>Ada Biaya Admin Transfer?</span>
+                    </label>
+
+                    {hasAdminFee && (
+                      <div className={styles.adminFeeInputGroup}>
+                        <label className={styles.formLabel}>Nominal Biaya Admin (Rp)</label>
+                        <input
+                          type="number"
+                          placeholder="Misal: 2500"
+                          value={adminFee}
+                          onChange={(e) => setAdminFee(e.target.value)}
+                          className={styles.textInput}
+                          min="0"
+                          required={hasAdminFee}
+                        />
+                        <span className={styles.installmentHelpText} style={{ color: 'var(--text-muted)' }}>
+                          Biaya admin akan otomatis dicatat sebagai pengeluaran tambahan dari dompet asal.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Foto Bukti Transfer / Resi (Opsional)</label>
                     <input
                       type="file"
                       accept="image/*"
@@ -1055,56 +1044,318 @@ export default function TransactionsPage() {
                     />
                     {receiptImage && (
                       <div className={styles.imagePreviewContainer}>
-                        <img src={receiptImage} alt="Preview Nota" className={styles.imagePreview} />
+                        <img src={receiptImage} alt="Preview Bukti Transfer" className={styles.imagePreview} />
                         <button type="button" onClick={() => setReceiptImage(null)} className={styles.removeImgBtn}>
                           Hapus Foto
                         </button>
                       </div>
                     )}
                   </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>Foto Barang / Fisik (Opsional)</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleImageSelect(file, setItemImage);
-                      }}
-                      className={styles.fileInput}
-                    />
-                    {itemImage && (
-                      <div className={styles.imagePreviewContainer}>
-                        <img src={itemImage} alt="Preview Barang" className={styles.imagePreview} />
-                        <button type="button" onClick={() => setItemImage(null)} className={styles.removeImgBtn}>
-                          Hapus Foto
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                </>
               ) : (
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>Foto Bukti Transfer / Resi Pemasukan (Opsional)</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageSelect(file, setReceiptImage);
-                    }}
-                    className={styles.fileInput}
-                  />
-                  {receiptImage && (
-                    <div className={styles.imagePreviewContainer}>
-                      <img src={receiptImage} alt="Preview Bukti Transfer" className={styles.imagePreview} />
-                      <button type="button" onClick={() => setReceiptImage(null)} className={styles.removeImgBtn}>
-                        Hapus Foto
-                      </button>
+                <>
+                  {/* Opsi Membayar Cicilan - HANYA UNTUK PENGELUARAN */}
+                  {newType === 'EXPENSE' && (
+                    <div className={styles.installmentToggleContainer}>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={isPayingInstallment}
+                          disabled={isMultiItem}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setIsPayingInstallment(checked);
+                            if (!checked) {
+                              setSelectedInstallmentPaymentId('');
+                            } else {
+                              setIsMultiItem(false);
+                            }
+                          }}
+                          className={styles.checkboxInput}
+                        />
+                        <CreditCard size={16} className={styles.toggleIcon} />
+                        <span>Membayar Tagihan Cicilan Aktif</span>
+                      </label>
+
+                      {isPayingInstallment && (
+                        <div className={styles.installmentSelectBox}>
+                          <label className={styles.installmentSelectLabel}>Pilih Cicilan &amp; Bulan Tagihan:</label>
+                          <select
+                            value={selectedInstallmentPaymentId}
+                            onChange={(e) => handleSelectInstallmentPayment(e.target.value)}
+                            className={styles.installmentDropdown}
+                            required={isPayingInstallment}
+                          >
+                            <option value="">-- Pilih Cicilan &amp; Bulan Tagihan --</option>
+                            {activeInstallments.map((inst) => {
+                              const pendingPayments = (inst.payments || []).filter(
+                                (p) => p.status !== 'PAID' || p.id === selectedInstallmentPaymentId
+                              );
+                              if (pendingPayments.length === 0) return null;
+                              return (
+                                <optgroup key={inst.id} label={`${inst.title} (${inst.provider})`}>
+                                  {pendingPayments.map((p) => {
+                                    const dueFormatted = new Date(p.dueDate).toLocaleDateString('id-ID', {
+                                      day: 'numeric',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    });
+                                    return (
+                                      <option key={p.id} value={p.id}>
+                                        Bulan Ke-{p.tenorNumber} dari {inst.totalTenorMonths} — Jatuh Tempo: {dueFormatted} — Rp {p.amount.toLocaleString('id-ID')} {p.status === 'PAID' ? '(Terbayar)' : ''}
+                                      </option>
+                                    );
+                                  })}
+                                </optgroup>
+                              );
+                            })}
+                          </select>
+                          {activeInstallments.length === 0 && (
+                            <span className={styles.installmentHelpText} style={{ color: 'var(--text-muted)' }}>
+                              Belum ada cicilan aktif yang tercatat. Tambahkan di menu Cicilan terlebih dahulu.
+                            </span>
+                          )}
+                          {selectedInstallmentPaymentId && (
+                            <span className={styles.installmentHelpText}>
+                              ✓ Otomatis mengisi nominal, judul, provider, dan dompet. Setelah disimpan, status di menu Cicilan otomatis berubah menjadi Terbayar (Lunas).
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
-                </div>
+
+                  {/* Multi-Item Toggle Checkbox Option - ONLY AVAILABLE FOR EXPENSES */}
+                  {newType === 'EXPENSE' && (
+                    <div className={styles.multiItemToggleContainer}>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={isMultiItem}
+                          disabled={isPayingInstallment}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setIsMultiItem(checked);
+                            if (checked) {
+                              setIsPayingInstallment(false);
+                              setSelectedInstallmentPaymentId('');
+                              const total = itemList.reduce((acc, it) => acc + ((Number(it.qty) || 1) * (Number(it.price) || 0)), 0);
+                              setNewAmount(total > 0 ? String(total) : '');
+                            }
+                          }}
+                          className={styles.checkboxInput}
+                        />
+                        <Package size={16} className={styles.toggleIcon} />
+                        <span>Rincian Banyak Barang (Multi-Item Pengeluaran)</span>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Dynamic Item List Table */}
+                  {isMultiItem && newType === 'EXPENSE' ? (
+                    <div className={styles.multiItemBox}>
+                      <div className={styles.multiItemHeader}>
+                        <span className={styles.multiItemBoxTitle}>Daftar Rincian Barang</span>
+                        <span className={styles.multiItemCountBadge}>{itemList.length} Items</span>
+                      </div>
+
+                      <div className={styles.itemTableHeader}>
+                        <span>Nama Barang</span>
+                        <span>Qty</span>
+                        <span>Harga Satuan</span>
+                        <span style={{ textAlign: 'right' }}>Subtotal</span>
+                        <span></span>
+                      </div>
+
+                      {itemList.map((item, idx) => (
+                        <div key={idx} className={styles.itemRow}>
+                          <input
+                            type="text"
+                            placeholder={`Minyak, Beras... #${idx + 1}`}
+                            value={item.name}
+                            onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
+                            className={styles.itemNameInput}
+                          />
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="1"
+                            value={item.qty}
+                            onChange={(e) => handleItemChange(idx, 'qty', e.target.value)}
+                            className={styles.itemQtyInput}
+                          />
+                          <input
+                            type="number"
+                            placeholder="Harga (Rp)"
+                            value={item.price || ''}
+                            onChange={(e) => handleItemChange(idx, 'price', e.target.value)}
+                            className={styles.itemPriceInput}
+                          />
+                          <span className={styles.itemSubtotal}>
+                            Rp {((item.qty || 1) * (item.price || 0)).toLocaleString('id-ID')}
+                          </span>
+                          {itemList.length > 1 ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItemRow(idx)}
+                              className={styles.removeItemBtn}
+                              title="Hapus baris barang"
+                            >
+                              <X size={15} />
+                            </button>
+                          ) : (
+                            <span></span>
+                          )}
+                        </div>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={handleAddItemRow}
+                        className={styles.addItemBtn}
+                      >
+                        <Plus size={14} />
+                        <span>Tambah Baris Barang</span>
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Total Nominal (Rp)</label>
+                    <input
+                      type="number"
+                      placeholder="50000"
+                      value={newAmount}
+                      onChange={(e) => setNewAmount(e.target.value)}
+                      readOnly={isMultiItem}
+                      className={`${styles.textInput} ${isMultiItem ? styles.readOnlyInput : ''}`}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.formGrid}>
+                    <div className={styles.formGroup}>
+                      <label className={styles.formLabel}>Kategori</label>
+                      <select
+                        value={selectedCategoryId}
+                        onChange={(e) => setSelectedCategoryId(e.target.value)}
+                        className={styles.selectInput}
+                        required
+                      >
+                        {availableCategories.length === 0 ? (
+                          <option value="">Tidak ada kategori</option>
+                        ) : (
+                          availableCategories.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                      <label className={styles.formLabel}>Dompet / Akun</label>
+                      <select
+                        value={selectedAccountId}
+                        onChange={(e) => setSelectedAccountId(e.target.value)}
+                        className={styles.selectInput}
+                        required
+                      >
+                        {accounts.length === 0 ? (
+                          <option value="">Buat dompet terlebih dahulu</option>
+                        ) : (
+                          accounts.map((a) => (
+                            <option key={a.id} value={a.id}>
+                              {a.name} (Saldo: Rp {a.balance.toLocaleString('id-ID')})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      {newType === 'EXPENSE' ? 'Penerima / Toko (Opsional)' : 'Pemberi / Sumber Dana (Opsional)'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={newType === 'EXPENSE' ? 'Misal: RM Sederhana / Tokopedia / Superindo' : 'Misal: PT Client / Bos / Transfer Teman'}
+                      value={recipientOrPayer}
+                      onChange={(e) => setRecipientOrPayer(e.target.value)}
+                      className={styles.textInput}
+                    />
+                  </div>
+
+                  {/* Optional Photo Inputs */}
+                  {newType === 'EXPENSE' ? (
+                    <div className={styles.formGrid}>
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Foto Nota / Struk (Opsional)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageSelect(file, setReceiptImage);
+                          }}
+                          className={styles.fileInput}
+                        />
+                        {receiptImage && (
+                          <div className={styles.imagePreviewContainer}>
+                            <img src={receiptImage} alt="Preview Nota" className={styles.imagePreview} />
+                            <button type="button" onClick={() => setReceiptImage(null)} className={styles.removeImgBtn}>
+                              Hapus Foto
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Foto Barang / Fisik (Opsional)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImageSelect(file, setItemImage);
+                          }}
+                          className={styles.fileInput}
+                        />
+                        {itemImage && (
+                          <div className={styles.imagePreviewContainer}>
+                            <img src={itemImage} alt="Preview Barang" className={styles.imagePreview} />
+                            <button type="button" onClick={() => setItemImage(null)} className={styles.removeImgBtn}>
+                              Hapus Foto
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={styles.formGroup}>
+                      <label className={styles.formLabel}>Foto Bukti Transfer / Resi Pemasukan (Opsional)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageSelect(file, setReceiptImage);
+                        }}
+                        className={styles.fileInput}
+                      />
+                      {receiptImage && (
+                        <div className={styles.imagePreviewContainer}>
+                          <img src={receiptImage} alt="Preview Bukti Transfer" className={styles.imagePreview} />
+                          <button type="button" onClick={() => setReceiptImage(null)} className={styles.removeImgBtn}>
+                            Hapus Foto
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
               <div className={styles.modalActions}>
@@ -1112,7 +1363,13 @@ export default function TransactionsPage() {
                   Batal
                 </button>
                 <button type="submit" className={styles.submitBtn} disabled={submitting}>
-                  {submitting ? <Loader2 size={16} className={styles.spinningIcon} /> : (editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi')}
+                  {submitting ? (
+                    <Loader2 size={16} className={styles.spinningIcon} />
+                  ) : (
+                    newType === 'TRANSFER'
+                      ? 'Simpan Pergantian Saldo'
+                      : (editingTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi')
+                  )}
                 </button>
               </div>
             </form>
