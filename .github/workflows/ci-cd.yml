@@ -50,28 +50,28 @@ jobs:
           echo "🚀 [CI/CD] Starting Finance Tracker Deployment on Homelab..."
 
           # 1. Ensure homelab directory hierarchy exists
-          mkdir -p /opt/apps/finance-tracker
-          mkdir -p /opt/homelab/compose/finance-tracker
-          mkdir -p /opt/homelab/compose/nginx/conf.d
+          mkdir -p /home/storage/apps/finance-tracker
+          mkdir -p /home/storage/homelab/compose/finance-tracker
+          mkdir -p /home/storage/homelab/compose/nginx/conf.d
 
-          # 2. Sync latest source code to /opt/apps/finance-tracker
-          echo "📦 Syncing source code to /opt/apps/finance-tracker..."
+          # 2. Sync latest source code to /home/storage/apps/finance-tracker
+          echo "📦 Syncing source code to /home/storage/apps/finance-tracker..."
           rsync -a --delete \
             --exclude '.git' \
             --exclude 'node_modules' \
             --exclude '.next' \
             --exclude 'dist' \
             --exclude '.turbo' \
-            ./ /opt/apps/finance-tracker/
+            ./ /home/storage/apps/finance-tracker/
 
           # 3. Sync Compose & Nginx configuration
           echo "⚙️ Syncing Compose and Nginx configs..."
-          cp docker/compose.yml /opt/homelab/compose/finance-tracker/compose.yml
-          cp docker/nginx-finance-tracker.conf /opt/homelab/compose/nginx/conf.d/finance-tracker.conf
+          cp docker/compose.yml /home/storage/homelab/compose/finance-tracker/compose.yml
+          cp docker/nginx-finance-tracker.conf /home/storage/homelab/compose/nginx/conf.d/finance-tracker.conf
 
           # 4. Build and restart Docker containers
           echo "🐳 Building and updating containers..."
-          cd /opt/homelab/compose/finance-tracker
+          cd /home/storage/homelab/compose/finance-tracker
           docker compose up -d --build --remove-orphans
 
           # 5. Reload master Nginx reverse proxy
